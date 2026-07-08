@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="fr" class="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DOJ - Copie locale</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav" aria-label="Navigation principale">
+        <img class="brand-logo" src="assets/lspd_logo.svg" alt="DOJ Logo">
+        <div class="nav-center">
+          <button class="nav-link active" type="button" data-view-target="doj">Comparution</button>
+          <button class="nav-link" type="button" data-view-target="prelim">Audience préliminaire</button>
+          <button class="nav-link" type="button" data-view-target="judgement">Jugement</button>
+          <button class="nav-link" type="button" data-view-target="infos">Infos</button>
+        </div>
+        <div class="nav-actions">
+          <button id="paletteToggle" class="app-mark" type="button" aria-label="Changer la couleur" aria-expanded="false" aria-controls="colorPalette">
+            <span aria-hidden="true">▰</span>
+          </button>
+          <div id="colorPalette" class="color-palette" hidden>
+            <div class="color-palette-title">Couleur</div>
+            <div id="colorPaletteOptions" class="color-palette-options" role="listbox" aria-label="Palette de couleur"></div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section id="prelimView" class="view" aria-labelledby="prelimTitle">
+        <section class="panel main-panel">
+          <h1 id="prelimTitle">Audience préliminaire</h1>
+
+          <form id="prelimForm" class="case-form" autocomplete="off">
+            <div class="form-layout prelim-layout">
+              <section class="identity-col" aria-label="Informations d'audience préliminaire">
+                <label class="field">
+                  <span>Nom et prénom <b>*</b></span>
+                  <input id="prelimName" name="prelim_name" type="text" required>
+                </label>
+
+                <label class="field">
+                  <span>Lien MED</span>
+                  <input id="prelimLinkMed" name="prelim_link_med" type="text">
+                </label>
+
+                <label class="field">
+                  <span>Procureur / Juge / OPJ</span>
+                  <input id="prelimJudge" name="prelim_juge" type="text">
+                </label>
+
+                <div class="lawyer-control">
+                  <button id="prelimLawyerToggle" class="switch-row" type="button" aria-pressed="false">
+                    <span class="switch-slider" aria-hidden="true"></span>
+                    <span>Avocat</span>
+                  </button>
+
+                  <label id="prelimLawyerNameField" class="field lawyer-name-field" hidden>
+                    <span>Nom de l'avocat</span>
+                    <input id="prelimLawyerName" name="prelim_lawyer_name" type="text" placeholder="Maître NOM">
+                  </label>
+                </div>
+              </section>
+
+              <div class="divider" aria-hidden="true"></div>
+
+              <section class="facts-col" aria-label="Liste des faits">
+                <div class="field selected-field">
+                  <span>Liste des faits <b>*</b></span>
+                  <div id="prelimSelectedFacts" class="selected-list" aria-live="polite"></div>
+                </div>
+
+                <div class="separator"></div>
+
+                <div class="combo" id="prelimFactCombo">
+                  <input id="prelimFactSearch" type="text" placeholder="Selectionne un fait" aria-label="Selectionne un fait" role="combobox" aria-expanded="false" aria-controls="prelimFactSuggestions">
+                  <button id="prelimComboToggle" class="combo-toggle" type="button" aria-label="Ouvrir la liste">⌄</button>
+                  <div id="prelimFactSuggestions" class="suggestions" role="listbox"></div>
+                </div>
+
+                <button id="prelimAddFact" class="primary-button" type="button">Ajouter</button>
+              </section>
+
+              <div class="divider" aria-hidden="true"></div>
+
+              <aside class="totals-panel prelim-totals" aria-label="Temps et TIG">
+                <label class="inline-field">
+                  <span>Temps :</span>
+                  <input id="prelimTimeTotal" type="text" value="0h00">
+                </label>
+
+                <div class="tig-control">
+                  <button id="tigToggle" class="switch-row" type="button" aria-pressed="false">
+                    <span class="switch-slider" aria-hidden="true"></span>
+                    <span>T.I.G</span>
+                  </button>
+                </div>
+              </aside>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel action-panel prelim-action-panel">
+          <button id="copyPrelimSapd" class="primary-button big-action prelim-big-action" type="button">Audience préliminaire SAPD</button>
+          <button id="openPrelimHearing" class="secondary-button big-action prelim-big-action" type="button">Ouvrir audience préliminaire</button>
+        </section>
+      </section>
+
+      <section id="dojView" class="view active" aria-labelledby="dojTitle">
+        <section class="panel main-panel">
+          <h1 id="dojTitle">Comparution</h1>
+
+          <form id="dojForm" class="case-form" autocomplete="off">
+            <div class="form-layout">
+              <section class="identity-col" aria-label="Informations de comparution">
+                <label class="field">
+                  <span>Nom et prénom <b>*</b></span>
+                  <input id="name" name="name" type="text" required>
+                </label>
+
+                <label class="field">
+                  <span>Lien MED / Comparution</span>
+                  <input id="linkMed" name="link_med" type="text">
+                </label>
+
+                <label class="field">
+                  <span>Procureur / Juge / OPJ</span>
+                  <input id="judge" name="juge" type="text">
+                </label>
+
+                <div class="lawyer-control">
+                  <button id="lawyerToggle" class="switch-row" type="button" aria-pressed="false">
+                    <span class="switch-slider" aria-hidden="true"></span>
+                    <span>Avocat</span>
+                  </button>
+
+                  <label id="lawyerNameField" class="field lawyer-name-field" hidden>
+                    <span>Nom de l'avocat</span>
+                    <input id="lawyerName" name="lawyer_name" type="text" placeholder="Maître NOM">
+                  </label>
+                </div>
+
+                <fieldset class="radio-group">
+                  <legend>Décision</legend>
+                  <label><input type="radio" name="decision" value="Coupable"> Coupable</label>
+                  <label><input type="radio" name="decision" value="Acquitté"> Acquitté</label>
+                  <label><input type="radio" name="decision" value="Non coupable"> Non coupable</label>
+                </fieldset>
+              </section>
+
+              <div class="divider" aria-hidden="true"></div>
+
+              <section class="facts-col" aria-label="Liste des faits">
+                <div class="field selected-field">
+                  <span>Liste des faits <b>*</b></span>
+                  <div id="selectedFacts" class="selected-list" aria-live="polite"></div>
+                </div>
+
+                <div class="separator"></div>
+
+                <div class="combo" id="factCombo">
+                  <input id="factSearch" type="text" placeholder="Selectionne un fait" aria-label="Selectionne un fait" role="combobox" aria-expanded="false" aria-controls="factSuggestions">
+                  <button id="comboToggle" class="combo-toggle" type="button" aria-label="Ouvrir la liste">⌄</button>
+                  <div id="factSuggestions" class="suggestions" role="listbox"></div>
+                </div>
+
+                <button id="addFact" class="primary-button" type="button">Ajouter</button>
+
+                <div class="separator spacious"></div>
+
+                <button id="openHearing" class="secondary-button" type="button">Ouverture de comparution</button>
+              </section>
+
+              <div class="divider" aria-hidden="true"></div>
+
+              <aside class="totals-panel" aria-label="Totaux">
+                <label class="inline-field">
+                  <span>Temps :</span>
+                  <input id="timeTotal" type="text" value="0h00">
+                </label>
+
+                <div class="tig-control">
+                  <button id="comparutionTigToggle" class="switch-row" type="button" aria-pressed="false">
+                    <span class="switch-slider" aria-hidden="true"></span>
+                    <span>T.I.G</span>
+                  </button>
+                </div>
+
+                <label class="inline-field">
+                  <span>Amende :</span>
+                  <input id="fineTotal" type="text" value="0 $">
+                </label>
+
+                <label class="check-row">
+                  <input id="fineDouble" type="checkbox">
+                  <span>Amende x2</span>
+                </label>
+
+                <label class="inline-field">
+                  <span>Réduction % :</span>
+                  <input id="reduction" type="number" min="0" max="100" value="0">
+                </label>
+              </aside>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel action-panel">
+          <button id="copySapd" class="primary-button big-action" type="button">Comparution SAPD</button>
+          <label class="field vices-field">
+            <span>Vices de procédures</span>
+            <textarea id="vices" name="vices" rows="6" placeholder="Décrire les vices de procédures..."></textarea>
+          </label>
+        </section>
+      </section>
+
+      <section id="judgementView" class="view" aria-labelledby="judgementTitle">
+        <section class="panel main-panel">
+          <h1 id="judgementTitle">Jugement</h1>
+
+          <form id="judgementForm" class="case-form" autocomplete="off">
+            <div class="form-layout">
+              <section class="identity-col" aria-label="Informations de jugement">
+                <label class="field">
+                  <span>Nom et prénom <b>*</b></span>
+                  <input id="judgementName" name="judgement_name" type="text" required>
+                </label>
+
+                <label class="field">
+                  <span>Lien dossier de jugement</span>
+                  <input id="judgementLinkMed" name="judgement_link_med" type="text">
+                </label>
+
+                <label class="field">
+                  <span>Procureur / Juge / OPJ</span>
+                  <input id="judgementJudge" name="judgement_juge" type="text">
+                </label>
+
+                <fieldset class="radio-group">
+                  <legend>Décision</legend>
+                  <label><input type="radio" name="judgement_decision" value="Coupable"> Coupable</label>
+                  <label><input type="radio" name="judgement_decision" value="Acquitté"> Acquitté</label>
+                  <label><input type="radio" name="judgement_decision" value="Non coupable"> Non coupable</label>
+                </fieldset>
+              </section>
+
+              <div class="divider" aria-hidden="true"></div>
+
+              <section class="facts-col" aria-label="Liste des faits">
+                <div class="field selected-field">
+                  <span>Liste des faits <b>*</b></span>
+                  <div id="judgementSelectedFacts" class="selected-list" aria-live="polite"></div>
+                </div>
+
+                <div class="separator"></div>
+
+                <div class="combo" id="judgementFactCombo">
+                  <input id="judgementFactSearch" type="text" placeholder="Selectionne un fait" aria-label="Selectionne un fait" role="combobox" aria-expanded="false" aria-controls="judgementFactSuggestions">
+                  <button id="judgementComboToggle" class="combo-toggle" type="button" aria-label="Ouvrir la liste">⌄</button>
+                  <div id="judgementFactSuggestions" class="suggestions" role="listbox"></div>
+                </div>
+
+                <button id="judgementAddFact" class="primary-button" type="button">Ajouter</button>
+              </section>
+
+              <div class="divider" aria-hidden="true"></div>
+
+              <aside class="totals-panel" aria-label="Totaux">
+                <label class="inline-field">
+                  <span>Temps :</span>
+                  <input id="judgementTimeTotal" type="text" placeholder="Temps">
+                </label>
+
+                <label class="inline-field">
+                  <span>Amende :</span>
+                  <input id="judgementFineTotal" type="text" placeholder="Amende">
+                </label>
+              </aside>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel action-panel judgement-action-panel">
+          <button id="copyJudgementSapd" class="primary-button big-action" type="button">Jugement SAPD</button>
+        </section>
+      </section>
+
+      <section id="infosView" class="view" aria-labelledby="infosTitle">
+        <section class="panel info-panel">
+          <div class="info-heading">
+            <h1 id="infosTitle">Infos</h1>
+            <input id="infoSearch" type="search" placeholder="Filtrer les faits" aria-label="Filtrer les faits">
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fait</th>
+                  <th>Amende</th>
+                  <th>Temps</th>
+                  <th>Détails</th>
+                </tr>
+              </thead>
+              <tbody id="codeTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel info-grid">
+          <article>
+            <h2>Catégories d'armes</h2>
+            <details open>
+              <summary>Catégorie A</summary>
+              <p>Couteau, batte, club de golf, poing américain, etc.</p>
+            </details>
+            <details>
+              <summary>Catégorie B</summary>
+              <p>9mm, pétoire, etc.</p>
+            </details>
+            <details>
+              <summary>Catégorie C</summary>
+              <p>Cal.50, uzi, tec 9, scorpion, canon sciée.</p>
+            </details>
+            <details>
+              <summary>Catégorie D</summary>
+              <p>Aku, AK47, Carabine M4, Gusenbergue, Batteuse Mk.14.</p>
+            </details>
+            <details>
+              <summary>Catégorie E</summary>
+              <p>Explosif / Chimique, C4.</p>
+            </details>
+          </article>
+
+          <article>
+            <h2>Defcon</h2>
+            <details open>
+              <summary>Defcon 1</summary>
+              <p>Durée : 1 à 12h. Renouvellement : 1 à 24h. Peines : jusqu'à 3x sur les amendes.</p>
+            </details>
+            <details>
+              <summary>Defcon 2</summary>
+              <p>Durée : 1 à 24h. Droits policiers renforcés. Peines : jusqu'à 2x sur les amendes.</p>
+            </details>
+            <details>
+              <summary>Defcon 3</summary>
+              <p>Durée : 1 à 48h. Périmètre : tous les lieux publics. Peines : jusqu'à 1.5x sur les amendes.</p>
+            </details>
+            <details>
+              <summary>Defcon 4</summary>
+              <p>Patrouilles normales. Droits habituels. Peines : 1x sur les amendes.</p>
+            </details>
+            <details>
+              <summary>Defcon 5</summary>
+              <p>État normal.</p>
+            </details>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>© 2026 Service Public de Los Santos. Tous droits réservés. Développé par <b>Blue</b></p>
+    </footer>
+
+    <div id="modal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <header class="modal-header">
+          <h2 id="modalTitle">Ouverture de comparution</h2>
+          <div class="modal-actions">
+            <button class="icon-button" type="button" data-close-modal aria-label="Fermer">×</button>
+          </div>
+        </header>
+        <div id="modalBody" class="modal-body"></div>
+      </section>
+    </div>
+
+    <div id="copyFallbackModal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-copy-modal></div>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="copyFallbackTitle">
+        <header class="modal-header">
+          <h2 id="copyFallbackTitle">Texte à copier</h2>
+          <button class="icon-button" type="button" data-close-copy-modal aria-label="Fermer">×</button>
+        </header>
+        <div class="modal-body">
+          <textarea id="manualCopyText" class="manual-copy-text" rows="14" readonly></textarea>
+        </div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="src_app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">Logo DOJ</title>
+  <desc id="desc">Badge stylisé pour l'application DOJ</desc>
+  <defs>
+    <linearGradient id="shield" x1="18" y1="8" x2="78" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e8f7ff"/>
+      <stop offset="0.45" stop-color="#58b7ff"/>
+      <stop offset="1" stop-color="#1f4ed8"/>
+    </linearGradient>
+  </defs>
+  <path fill="#07111f" d="M48 4 84 17v26c0 22.5-13.8 39.7-36 49C25.8 82.7 12 65.5 12 43V17L48 4Z"/>
+  <path fill="url(#shield)" d="M48 10 78 21v22c0 18.8-11 33.5-30 42-19-8.5-30-23.2-30-42V21l30-11Z"/>
+  <path fill="#07111f" d="M48 18 70 26v17c0 14.4-7.9 25.9-22 33-14.1-7.1-22-18.6-22-33V26l22-8Z" opacity=".88"/>
+  <path fill="#f8d66d" d="M48 24 55 40h17L58.5 50.5 64 67 48 57 32 67l5.5-16.5L24 40h17l7-16Z"/>
+  <text x="48" y="48" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#07111f">DOJ</text>
+</svg>
