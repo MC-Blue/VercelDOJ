@@ -125,6 +125,7 @@ textarea,
   position: relative;
   justify-content: flex-end;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .brand-logo {
@@ -485,6 +486,30 @@ textarea {
   cursor: default;
 }
 
+.toolbar-button {
+  min-height: 32px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--panel-soft) 46%, transparent);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.toolbar-button:hover {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel-soft));
+  color: var(--text);
+}
+
+.toolbar-button.danger:hover {
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  background: color-mix(in srgb, var(--danger) 12%, var(--panel-soft));
+}
+
 .selected-item-count {
   display: inline-grid;
   grid-template-columns: auto 58px;
@@ -769,7 +794,7 @@ textarea {
 
 .action-panel {
   display: grid;
-  grid-template-columns: minmax(188px, 240px) 1fr;
+  grid-template-columns: minmax(188px, 240px) minmax(260px, 0.75fr) minmax(150px, 210px) minmax(170px, 230px);
   gap: 22px;
   align-items: stretch;
   margin-top: 22px;
@@ -796,6 +821,90 @@ textarea {
 .vices-field textarea {
   height: 100%;
   min-height: 140px;
+}
+
+.vices-workspace {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.vices-workspace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.vices-workspace-header .secondary-button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
+.compact-list {
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--panel-2) 44%, transparent);
+  padding: 8px;
+}
+
+.empty-selected {
+  color: var(--muted-2);
+  font-size: 0.86rem;
+  padding: 4px;
+}
+
+.vices-picker-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.vice-option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--panel-soft) 42%, transparent);
+  padding: 12px;
+  cursor: pointer;
+}
+
+.vice-option:hover {
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+  background: color-mix(in srgb, var(--primary) 9%, var(--panel-soft));
+}
+
+.vice-option input {
+  margin-top: 3px;
+  accent-color: var(--primary);
+}
+
+.vice-option-content {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.vice-option-content b {
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.vice-option-content span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .info-panel {
@@ -831,6 +940,21 @@ textarea {
   color: var(--text);
   font-size: 0.78rem;
   font-weight: 850;
+}
+
+.detail-badge.acquittement {
+  border-color: color-mix(in srgb, var(--success) 46%, var(--border));
+  background: color-mix(in srgb, var(--success) 13%, transparent);
+}
+
+.detail-badge.reduction {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.detail-badge.annulation {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+  background: color-mix(in srgb, var(--danger) 11%, transparent);
 }
 
 .table-wrap {
@@ -1214,6 +1338,21 @@ details p {
   resize: vertical;
 }
 
+.manual-copy-text.compact {
+  min-height: 180px;
+}
+
+.small-modal-card {
+  width: min(620px, calc(100% - 32px));
+}
+
+.modal-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .toast {
   position: fixed;
   right: 22px;
@@ -1319,6 +1458,14 @@ details p {
     grid-template-columns: 1fr;
   }
 
+  .action-panel {
+    grid-template-columns: minmax(188px, 240px) 1fr;
+  }
+
+  .vices-field {
+    grid-column: 1 / -1;
+  }
+
   .divider {
     width: 100%;
     min-height: 1px;
@@ -1358,6 +1505,14 @@ details p {
 
   .nav-actions {
     grid-area: actions;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .toolbar-button {
+    min-height: 30px;
+    padding: 0 7px;
+    font-size: 0.72rem;
   }
 
   .color-palette {

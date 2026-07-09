@@ -15,8 +15,10 @@
           <button class="nav-link" type="button" data-view-target="prelim">Audience préliminaire</button>
           <button class="nav-link" type="button" data-view-target="judgement">Jugement</button>
           <button class="nav-link" type="button" data-view-target="infos">Infos</button>
+          <button class="nav-link" type="button" data-view-target="procedureVices">Vices de procédure</button>
         </div>
         <div class="nav-actions">
+          <button id="resetCase" class="toolbar-button danger" type="button">Réinitialiser</button>
           <button id="paletteToggle" class="app-mark" type="button" aria-label="Changer la couleur" aria-expanded="false" aria-controls="colorPalette">
             <span aria-hidden="true">▰</span>
           </button>
@@ -145,7 +147,7 @@
                 <fieldset class="radio-group">
                   <legend>Décision</legend>
                   <label><input type="radio" name="decision" value="Coupable"> Coupable</label>
-                  <label><input type="radio" name="decision" value="Acquitté"> Acquitté</label>
+                  <label hidden><input type="radio" name="decision" value="Acquitté"> Acquitté</label>
                   <label><input type="radio" name="decision" value="Non coupable"> Non coupable</label>
                 </fieldset>
               </section>
@@ -209,10 +211,15 @@
 
         <section class="panel action-panel">
           <button id="copySapd" class="primary-button big-action" type="button">Comparution SAPD</button>
-          <label class="field vices-field">
-            <span>Vices de procédures</span>
-            <textarea id="vices" name="vices" rows="6" placeholder="Décrire les vices de procédures..."></textarea>
-          </label>
+          <div class="vices-workspace">
+            <div class="vices-workspace-header">
+              <span>Vices de procédure</span>
+            </div>
+            <div id="selectedProcedureVices" class="selected-list compact-list" aria-live="polite"></div>
+          </div>
+          <button id="openVicesPicker" class="secondary-button big-action" type="button">Vices</button>
+          <button id="copyVicesContest" class="primary-button big-action" type="button">Vice SAPD</button>
+          <textarea id="vices" name="vices" hidden></textarea>
         </section>
       </section>
 
@@ -359,6 +366,28 @@
           </article>
         </section>
       </section>
+
+      <section id="procedureVicesView" class="view" aria-labelledby="procedureVicesTitle">
+        <section class="panel info-panel">
+          <div class="info-heading">
+            <h1 id="procedureVicesTitle">Vices de procédure</h1>
+            <input id="procedureVicesSearch" type="search" placeholder="Filtrer les vices" aria-label="Filtrer les vices">
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Catégorie</th>
+                  <th>Vice</th>
+                  <th>Conséquence</th>
+                </tr>
+              </thead>
+              <tbody id="procedureVicesTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
     </main>
 
     <footer class="footer">
@@ -387,6 +416,20 @@
         </header>
         <div class="modal-body">
           <textarea id="manualCopyText" class="manual-copy-text" rows="14" readonly></textarea>
+        </div>
+      </section>
+    </div>
+
+    <div id="procedureVicesModal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-procedure-vices-modal></div>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="procedureVicesModalTitle">
+        <header class="modal-header">
+          <h2 id="procedureVicesModalTitle">Sélection des vices</h2>
+          <button class="icon-button" type="button" data-close-procedure-vices-modal aria-label="Fermer">Ã—</button>
+        </header>
+        <div class="modal-body">
+          <input id="procedureVicesPickerSearch" type="search" placeholder="Rechercher un vice" aria-label="Rechercher un vice">
+          <div id="procedureVicesPickerList" class="vices-picker-list"></div>
         </div>
       </section>
     </div>

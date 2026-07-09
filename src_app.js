@@ -162,7 +162,8 @@ const state = {
   tigActive: false,
   prisonMinutes: 0,
   tigValue: 1,
-  lawyerActive: false
+  lawyerActive: false,
+  procedureVices: []
 };
 
 const prelimState = {
@@ -187,6 +188,8 @@ const REPORT_CHANNEL_URL = "https://discord.com/channels/1153280827245994056/128
 const CIVIL_PARTY_LABEL = "poste de police de SERVICE / INSTITUTION";
 const EMPTY_PERSON_LABEL = "nom et prénom à compléter";
 const THEME_STORAGE_KEY = "doj_color_palette";
+const CASE_STORAGE_KEY = "doj_case_autosave_v1";
+const CASE_EXPORT_VERSION = 1;
 const COLOR_PALETTES = [
   { id: "cyan", label: "Bleu cyan", primary: "#2bd7ff", primaryStrong: "#0ea5d7", accent: "#5bd7ff" },
   { id: "blue", label: "Bleu police", primary: "#5aa7ff", primaryStrong: "#2563eb", accent: "#8bbcff" },
@@ -198,10 +201,72 @@ const COLOR_PALETTES = [
   { id: "pink", label: "Rose", primary: "#ff7ac8", primaryStrong: "#db2777", accent: "#ffaddd" }
 ];
 
+const PROCEDURE_VICES = [
+  { id: "1-1", category: "I - Droits fondamentaux", name: "Absence d'accès à un avocat alors que celui-ci est disponible", effect: "Acquittement", type: "acquittement" },
+  { id: "1-2", category: "I - Droits fondamentaux", name: "Non-respect du délai légal d'attente de l'avocat", effect: "Acquittement", type: "acquittement" },
+  { id: "1-3", category: "I - Droits fondamentaux", name: "Interrogatoire conduit sans la présence ou l'accord exprès de l'avocat, après demande formelle", effect: "Acquittement", type: "acquittement" },
+  { id: "1-4", category: "I - Droits fondamentaux", name: "Atteinte au droit au silence", effect: "Acquittement", type: "acquittement" },
+  { id: "1-5", category: "I - Droits fondamentaux", name: "Non-lecture des droits Miranda à l'individu", effect: "Acquittement", type: "acquittement" },
+  { id: "1-6", category: "I - Droits fondamentaux", name: "Non-respect du délai raisonnable de notification des droits Miranda (15 minutes maximum après l'arrestation et l'arrivée au poste)", effect: "Acquittement", type: "acquittement" },
+  { id: "1-7", category: "I - Droits fondamentaux", name: "Objets saisis avant lecture des droits", effect: "Réduction de peine de 30 %", type: "reduction", reduction: 30 },
+  { id: "1-8", category: "I - Droits fondamentaux", name: "Aucune information communiquée sur les accusations lors de la procédure", effect: "Acquittement", type: "acquittement" },
+  { id: "1-9", category: "I - Droits fondamentaux", name: "Traitements inhumains ou dégradants, menaces, pressions morales ou contraintes psychologiques hors cadre légal", effect: "Acquittement", type: "acquittement" },
+  { id: "1-10", category: "I - Droits fondamentaux", name: "Conditions de détention contraires à la dignité humaine", effect: "Acquittement", type: "acquittement" },
+  { id: "1-11", category: "I - Droits fondamentaux", name: "Refus injustifié de soins médicaux en détention", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "1-12", category: "I - Droits fondamentaux", name: "Refus injustifié de fournir nourriture ou boisson", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "1-13", category: "I - Droits fondamentaux", name: "Privation d'accès aux installations sanitaires ou aux mesures d'hygiène élémentaires", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
+  { id: "2-1", category: "II - Procédure judiciaire", name: "Non-transmission du dossier complet au DOJ ou à l'avocat dans le cadre d'une procédure de jugement", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "2-2", category: "II - Procédure judiciaire", name: "Non-transmission de la mise en détention (MED) à l'avocat (avant ou pendant une comparution/audience)", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "2-3", category: "II - Procédure judiciaire", name: "Non-respect du délai d'attente de la réponse du DOJ ou de l'avocat", effect: "Acquittement", type: "acquittement" },
+  { id: "2-4", category: "II - Procédure judiciaire", name: "Refus de pause raisonnable durant un interrogatoire pour l'avocat ou le suspect", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
+  { id: "2-5", category: "II - Procédure judiciaire", name: "Sortie de comparution sans autorisation préalable du DOJ", effect: "Réduction de peine de 30 %", type: "reduction", reduction: 30 },
+  { id: "2-6", category: "II - Procédure judiciaire", name: "Facture émise avant la fin de la comparution", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "3-1", category: "III - Preuves", name: "Preuve obtenue illégalement (absence de mandat ou de base légale)", effect: "Acquittement", type: "acquittement" },
+  { id: "3-2", category: "III - Preuves", name: "Preuve inventée, fabriquée ou falsifiée", effect: "Acquittement", type: "acquittement" },
+  { id: "3-3", category: "III - Preuves", name: "Destruction, altération, dissimulation ou perte volontaire des preuves", effect: "Acquittement", type: "acquittement" },
+  { id: "3-4", category: "III - Preuves", name: "Destruction, altération, dissimulation ou perte d'un élément disculpatoire", effect: "Acquittement", type: "acquittement" },
+  { id: "3-5", category: "III - Preuves", name: "Objet illégal mentionné sans preuve de saisie dans la MED", effect: "Annulation de la peine de possession", type: "annulation" },
+  { id: "3-6", category: "III - Preuves", name: "Objet illégal saisi mais non effectivement possédé par l'individu", effect: "Annulation de la peine de possession", type: "annulation" },
+  { id: "4-1", category: "IV - Arrestation", name: "Arrestation sans éléments matériels, indices objectifs ou témoignages concordants", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "4-2", category: "IV - Arrestation", name: "Arrestation sans nécessité légale ou manifestement disproportionnée", effect: "Réduction de peine de 30 %", type: "reduction", reduction: 30 },
+  { id: "4-3", category: "IV - Arrestation", name: "Usage excessif de la force lors de l'arrestation", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "4-4", category: "IV - Arrestation", name: "Non-respect de la gradation et de l'escalade des moyens", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
+  { id: "4-5", category: "IV - Arrestation", name: "Atteinte à la dignité de la personne lors de l'arrestation", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
+  { id: "5-1", category: "V - Détention abusive", name: "Détention prolongée sans jugement ou sans justification légale", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "5-2", category: "V - Détention abusive", name: "Détention fondée sur des motifs punitifs, politiques, personnels ou discriminatoires", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "5-3", category: "V - Détention abusive", name: "Traitement différencié ou discriminatoire sans justification légale objective", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "6-1", category: "VI - Rapports et erreurs", name: "Inexactitude ou mauvaise qualification des faits dans les rapports", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
+  { id: "6-2", category: "VI - Rapports et erreurs", name: "Absence de pièces essentielles au dossier (rapports, photographies, objets saisis)", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
+  { id: "6-3", category: "VI - Rapports et erreurs", name: "Absence totale de Mise En Détention (MED)", effect: "Acquittement", type: "acquittement" },
+  { id: "6-4", category: "VI - Rapports et erreurs", name: "Modification de la MED sans validation préalable du DOJ", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "6-5", category: "VI - Rapports et erreurs", name: "Erreur d'identité majeure (nom, prénom, sexe)", effect: "Acquittement", type: "acquittement" },
+  { id: "6-6", category: "VI - Rapports et erreurs", name: "Erreur d'identité administrative (autres éléments d'état civil)", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
+  { id: "6-7", category: "VI - Rapports et erreurs", name: "Qualification pénale ne correspondant pas à l'infraction la plus grave applicable", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
+  { id: "7-1", category: "VII - Photographies et saisies", name: "Photographie du casier non conforme (tête et épaules uniquement) ou manquante", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
+  { id: "7-2", category: "VII - Photographies et saisies", name: "Présence d'effets personnels visibles sur la photographie", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
+  { id: "7-3", category: "VII - Photographies et saisies", name: "Objets illégaux non saisis ou omission de saisie avant comparution", effect: "Réduction de peine de 75 %", type: "reduction", reduction: 75 },
+  { id: "7-4", category: "VII - Photographies et saisies", name: "Absence de photographies complètes (face, dos, profil gauche et profil droit) pour un individu tatoué", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
+  { id: "8-1", category: "VIII - Abus de pouvoir", name: "Exercice de l'autorité à des fins personnelles ou illégales", effect: "Acquittement", type: "acquittement" },
+  { id: "8-2", category: "VIII - Abus de pouvoir", name: "Menaces, pressions ou contraintes visant à obtenir aveux ou informations hors cadre légal", effect: "Acquittement", type: "acquittement" },
+  { id: "8-3", category: "VIII - Abus de pouvoir", name: "Représailles directes ou déguisées à l'encontre d'un individu ou d'un groupe", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
+  { id: "8-4", category: "VIII - Abus de pouvoir", name: "Utilisation des pouvoirs publics à des intérêts privés", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "8-5", category: "VIII - Abus de pouvoir", name: "Sanctions manifestement excessives ou injustifiées", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
+  { id: "8-6", category: "VIII - Abus de pouvoir", name: "Altération volontaire de la version des faits par une autorité ou un témoin officiel", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "9-1", category: "IX - Infractions majeures", name: "Propos incompatibles avec la fonction (menaces, insultes, propos discriminatoires ou intimidants)", effect: "Réduction de peine de 50 % + suites disciplinaires DOJ", type: "reduction", reduction: 50 },
+  { id: "9-2", category: "IX - Infractions majeures", name: "Ajout, invention ou modification d'un chef d'accusation sans base légale ou validation du DOJ", effect: "Annulation de la peine concernée", type: "annulation" },
+  { id: "9-3", category: "IX - Infractions majeures", name: "Falsification, altération ou création de documents juridiques ou officiels", effect: "Annulation de la peine concernée", type: "annulation" },
+  { id: "9-4", category: "IX - Infractions majeures", name: "Application ou interprétation volontairement erronée de la loi à des fins personnelles", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "9-5", category: "IX - Infractions majeures", name: "Refus de communication d'informations légales ou défaut de transparence dans une enquête", effect: "Réduction de peine de 30 %", type: "reduction", reduction: 30 },
+  { id: "9-6", category: "IX - Infractions majeures", name: "Atteinte au droit de la défense empêchant l'accusé de se défendre équitablement", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
+  { id: "9-7", category: "IX - Infractions majeures", name: "Retard injustifié dans le traitement d'une procédure judiciaire", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
+  { id: "9-8", category: "IX - Infractions majeures", name: "Manipulation de la procédure judiciaire visant à fausser l'issue d'une décision", effect: "Acquittement", type: "acquittement" }
+];
+
 const refs = {
   prelimForm: $("#prelimForm"),
   dojForm: $("#dojForm"),
   judgementForm: $("#judgementForm"),
+  resetCase: $("#resetCase"),
   paletteToggle: $("#paletteToggle"),
   colorPalette: $("#colorPalette"),
   colorPaletteOptions: $("#colorPaletteOptions"),
@@ -248,19 +313,28 @@ const refs = {
   fineDouble: $("#fineDouble"),
   reduction: $("#reduction"),
   openHearing: $("#openHearing"),
+  openVicesPicker: $("#openVicesPicker"),
   copySapd: $("#copySapd"),
+  copyVicesContest: $("#copyVicesContest"),
+  selectedProcedureVices: $("#selectedProcedureVices"),
   vices: $("#vices"),
   modal: $("#modal"),
   modalTitle: $("#modalTitle"),
   modalBody: $("#modalBody"),
   copyFallbackModal: $("#copyFallbackModal"),
   manualCopyText: $("#manualCopyText"),
+  procedureVicesModal: $("#procedureVicesModal"),
+  procedureVicesPickerSearch: $("#procedureVicesPickerSearch"),
+  procedureVicesPickerList: $("#procedureVicesPickerList"),
   toast: $("#toast"),
   infoSearch: $("#infoSearch"),
-  codeTable: $("#codeTable")
+  codeTable: $("#codeTable"),
+  procedureVicesSearch: $("#procedureVicesSearch"),
+  procedureVicesTable: $("#procedureVicesTable")
 };
 
 const factByName = new Map(codePenal.map((fact) => [fact.nom, fact]));
+const procedureViceById = new Map(PROCEDURE_VICES.map((vice) => [vice.id, vice]));
 
 const CATEGORY_SEVERITY = new Map([
   ["peine federale", 0],
@@ -465,6 +539,7 @@ function updateLawyerControl() {
   refs.lawyerToggle.setAttribute("aria-pressed", String(state.lawyerActive));
   refs.lawyerNameField.hidden = !state.lawyerActive;
   if (!state.lawyerActive) refs.lawyerName.value = "";
+  saveCaseToStorage();
 }
 
 function updatePrelimLawyerControl() {
@@ -472,6 +547,7 @@ function updatePrelimLawyerControl() {
   refs.prelimLawyerToggle.setAttribute("aria-pressed", String(prelimState.lawyerActive));
   refs.prelimLawyerNameField.hidden = !prelimState.lawyerActive;
   if (!prelimState.lawyerActive) refs.prelimLawyerName.value = "";
+  saveCaseToStorage();
 }
 
 function getStoredPaletteId() {
@@ -561,11 +637,393 @@ function toggleColorPalette() {
 }
 
 function currentDecision() {
+  if (hasSelectedAcquittementVice()) return "Acquittement";
   return $('input[name="decision"]:checked')?.value ?? "";
 }
 
 function currentJudgementDecision() {
   return $('input[name="judgement_decision"]:checked')?.value ?? "";
+}
+
+let isRestoringCase = false;
+
+function currentViewName() {
+  return $(".view.active")?.id?.replace("View", "") || "doj";
+}
+
+function setRadioValue(name, value) {
+  $$(`input[name="${name}"]`).forEach((input) => {
+    input.checked = input.value === value;
+  });
+}
+
+function serializeFactCounts(counts) {
+  return Array.from(counts, ([fact, count]) => [fact, Math.max(1, Math.floor(Number(count) || 1))]);
+}
+
+function parseFactCounts(entries) {
+  const counts = new Map();
+  (Array.isArray(entries) ? entries : []).forEach(([fact, count]) => {
+    if (factByName.has(fact)) counts.set(fact, Math.max(1, Math.floor(Number(count) || 1)));
+  });
+  return counts;
+}
+
+function validFacts(facts) {
+  return (Array.isArray(facts) ? facts : []).filter((fact) => factByName.has(fact));
+}
+
+function validProcedureVices(vices) {
+  return (Array.isArray(vices) ? vices : []).filter((id) => procedureViceById.has(id));
+}
+
+function getCaseSnapshot() {
+  return {
+    version: CASE_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    activeView: currentViewName(),
+    comparution: {
+      name: refs.name.value,
+      linkMed: refs.linkMed.value,
+      judge: refs.judge.value,
+      lawyerActive: state.lawyerActive,
+      lawyerName: refs.lawyerName.value,
+      decision: currentDecision(),
+      facts: [...state.facts],
+      tigActive: state.tigActive,
+      tigValue: state.tigValue,
+      fineDouble: refs.fineDouble.checked,
+      reduction: refs.reduction.value,
+      procedureVices: [...state.procedureVices],
+      vices: refs.vices.value
+    },
+    prelim: {
+      name: refs.prelimName.value,
+      linkMed: refs.prelimLinkMed.value,
+      judge: refs.prelimJudge.value,
+      lawyerActive: prelimState.lawyerActive,
+      lawyerName: refs.prelimLawyerName.value,
+      facts: [...prelimState.facts],
+      tigActive: prelimState.tigActive,
+      tigValue: prelimState.tigValue
+    },
+    judgement: {
+      name: refs.judgementName.value,
+      linkMed: refs.judgementLinkMed.value,
+      judge: refs.judgementJudge.value,
+      decision: currentJudgementDecision(),
+      facts: [...judgementState.facts],
+      factCounts: serializeFactCounts(judgementState.factCounts),
+      timeTotal: refs.judgementTimeTotal.value,
+      fineTotal: refs.judgementFineTotal.value
+    }
+  };
+}
+
+function saveCaseToStorage() {
+  if (isRestoringCase) return;
+  try {
+    localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(getCaseSnapshot()));
+  } catch (error) {
+    console.warn("Case autosave failed.", error);
+  }
+}
+
+function restoreCaseSnapshot(snapshot, shouldSwitchView = true) {
+  if (!snapshot || typeof snapshot !== "object") return false;
+
+  isRestoringCase = true;
+  const comparution = snapshot.comparution || {};
+  const prelim = snapshot.prelim || {};
+  const judgement = snapshot.judgement || {};
+
+  refs.name.value = comparution.name || "";
+  refs.linkMed.value = comparution.linkMed || "";
+  refs.judge.value = comparution.judge || "";
+  refs.lawyerName.value = comparution.lawyerName || "";
+  refs.fineDouble.checked = Boolean(comparution.fineDouble);
+  refs.reduction.value = String(clampReduction(comparution.reduction || 0));
+  refs.vices.value = comparution.vices || "";
+  setRadioValue("decision", comparution.decision || "");
+  state.facts = validFacts(comparution.facts);
+  state.pendingFact = "";
+  state.tigActive = Boolean(comparution.tigActive);
+  state.tigValue = clampTigValue(comparution.tigValue || 1);
+  state.lawyerActive = Boolean(comparution.lawyerActive);
+  state.procedureVices = validProcedureVices(comparution.procedureVices);
+
+  refs.prelimName.value = prelim.name || "";
+  refs.prelimLinkMed.value = prelim.linkMed || "";
+  refs.prelimJudge.value = prelim.judge || "";
+  refs.prelimLawyerName.value = prelim.lawyerName || "";
+  prelimState.facts = validFacts(prelim.facts);
+  prelimState.pendingFact = "";
+  prelimState.tigActive = Boolean(prelim.tigActive);
+  prelimState.tigValue = clampTigValue(prelim.tigValue || 1);
+  prelimState.lawyerActive = Boolean(prelim.lawyerActive);
+
+  refs.judgementName.value = judgement.name || "";
+  refs.judgementLinkMed.value = judgement.linkMed || "";
+  refs.judgementJudge.value = judgement.judge || "";
+  refs.judgementTimeTotal.value = judgement.timeTotal || "";
+  refs.judgementFineTotal.value = judgement.fineTotal || "";
+  setRadioValue("judgement_decision", judgement.decision || "");
+  judgementState.facts = validFacts(judgement.facts);
+  judgementState.pendingFact = "";
+  judgementState.factCounts = parseFactCounts(judgement.factCounts);
+  judgementState.facts.forEach((fact) => {
+    if (!judgementState.factCounts.has(fact)) judgementState.factCounts.set(fact, 1);
+  });
+
+  updateLawyerControl();
+  updatePrelimLawyerControl();
+  updatePrelimPrisonMinutes();
+  renderSelectedFacts();
+  renderSelectedProcedureVices();
+  applyProcedureVicesEffects();
+  renderPrelimSelectedFacts();
+  renderJudgementSelectedFacts();
+  updatePrelimTime();
+  updateJudgementTotals();
+  updateTotals();
+  if (shouldSwitchView && snapshot.activeView) switchView(snapshot.activeView);
+
+  isRestoringCase = false;
+  saveCaseToStorage();
+  return true;
+}
+
+function loadSavedCase() {
+  try {
+    const raw = localStorage.getItem(CASE_STORAGE_KEY);
+    if (!raw) return false;
+    return restoreCaseSnapshot(JSON.parse(raw));
+  } catch (error) {
+    console.warn("Case restore failed.", error);
+    return false;
+  }
+}
+
+function resetCurrentCase() {
+  const snapshot = getCaseSnapshot();
+  const view = currentViewName();
+
+  if (view === "prelim") {
+    snapshot.prelim = {};
+  } else if (view === "judgement") {
+    snapshot.judgement = {};
+  } else if (view === "doj") {
+    snapshot.comparution = {};
+  } else {
+    snapshot.comparution = {};
+    snapshot.prelim = {};
+    snapshot.judgement = {};
+  }
+
+  snapshot.activeView = view;
+  restoreCaseSnapshot(snapshot, false);
+  showToast("Dossier réinitialisé.");
+}
+
+function validateCaseBeforeCopy(type) {
+  const checks = {
+    doj: [
+      [refs.name.value.trim(), "Nom manquant"],
+      [state.facts.length, "Aucun fait sélectionné"],
+      [currentDecision(), "Décision non choisie"]
+    ],
+    prelim: [
+      [refs.prelimName.value.trim(), "Nom manquant"],
+      [prelimState.facts.length, "Aucun fait sélectionné"]
+    ],
+    judgement: [
+      [refs.judgementName.value.trim(), "Nom manquant"],
+      [judgementState.facts.length, "Aucun fait sélectionné"],
+      [currentJudgementDecision(), "Décision non choisie"]
+    ]
+  };
+
+  const missing = (checks[type] || []).find(([valid]) => !valid);
+  if (!missing) return true;
+
+  showToast(missing[1]);
+  return false;
+}
+
+function selectedProcedureViceObjects() {
+  return state.procedureVices.map((id) => procedureViceById.get(id)).filter(Boolean);
+}
+
+function isProcedureViceSelected(id) {
+  return state.procedureVices.includes(id);
+}
+
+function procedureViceMatches(vice, query) {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return true;
+  return normalizeSearchText(`${vice.category} ${vice.name} ${vice.effect}`).includes(normalizedQuery);
+}
+
+function selectedProcedureReduction() {
+  const selected = selectedProcedureViceObjects();
+  if (selected.some((vice) => vice.type === "acquittement")) return 100;
+  return Math.max(0, ...selected.filter((vice) => vice.type === "reduction").map((vice) => vice.reduction || 0));
+}
+
+function hasSelectedAcquittementVice() {
+  return selectedProcedureViceObjects().some((vice) => vice.type === "acquittement");
+}
+
+function setComparutionAcquittement() {
+  const target = $$('input[name="decision"]').find((input) => normalizeSearchText(input.value).includes("acquitt"));
+  if (target) target.checked = true;
+}
+
+function updateComparutionDecisionLock() {
+  const locked = hasSelectedAcquittementVice();
+  $$('input[name="decision"]').forEach((input) => {
+    const isAcquittement = normalizeSearchText(input.value).includes("acquitt");
+    const label = input.closest("label");
+    if (label) label.hidden = locked ? !isAcquittement : isAcquittement;
+    input.disabled = locked && !isAcquittement;
+    if (!locked && isAcquittement && input.checked) input.checked = false;
+  });
+
+  if (locked) setComparutionAcquittement();
+}
+
+function applyProcedureVicesEffects() {
+  const reduction = selectedProcedureReduction();
+  refs.reduction.value = String(reduction);
+  updateComparutionDecisionLock();
+  updateTotals();
+}
+
+function renderSelectedProcedureVices() {
+  refs.selectedProcedureVices.innerHTML = "";
+
+  selectedProcedureViceObjects().forEach((vice) => {
+    const item = document.createElement("div");
+    item.className = "selected-item";
+
+    const text = document.createElement("span");
+    text.className = "selected-item-text";
+    text.textContent = `${vice.name} - ${vice.effect}`;
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.title = "Retirer le vice";
+    remove.setAttribute("aria-label", `Retirer ${vice.name}`);
+    remove.textContent = "×";
+    remove.addEventListener("click", () => {
+      state.procedureVices = state.procedureVices.filter((id) => id !== vice.id);
+      renderSelectedProcedureVices();
+      renderProcedureVicesPicker();
+      applyProcedureVicesEffects();
+    });
+
+    item.append(text, remove);
+    refs.selectedProcedureVices.append(item);
+  });
+
+  if (!state.procedureVices.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-selected";
+    empty.textContent = "Aucun vice sélectionné.";
+    refs.selectedProcedureVices.append(empty);
+  }
+}
+
+function renderProcedureVicesTable() {
+  const query = refs.procedureVicesSearch.value;
+  const rows = PROCEDURE_VICES.filter((vice) => procedureViceMatches(vice, query));
+
+  refs.procedureVicesTable.innerHTML = rows
+    .map((vice) => `
+      <tr>
+        <td>${escapeHtml(vice.category)}</td>
+        <td>${escapeHtml(vice.name)}</td>
+        <td><span class="detail-badge ${vice.type}">${escapeHtml(vice.effect)}</span></td>
+      </tr>
+    `)
+    .join("");
+}
+
+function renderProcedureVicesPicker() {
+  const query = refs.procedureVicesPickerSearch.value;
+  const rows = PROCEDURE_VICES.filter((vice) => procedureViceMatches(vice, query));
+
+  refs.procedureVicesPickerList.innerHTML = "";
+  rows.forEach((vice) => {
+    const label = document.createElement("label");
+    label.className = "vice-option";
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = isProcedureViceSelected(vice.id);
+    input.addEventListener("change", () => {
+      if (input.checked && !isProcedureViceSelected(vice.id)) {
+        state.procedureVices.push(vice.id);
+      } else if (!input.checked) {
+        state.procedureVices = state.procedureVices.filter((id) => id !== vice.id);
+      }
+      renderSelectedProcedureVices();
+      applyProcedureVicesEffects();
+    });
+
+    const content = document.createElement("span");
+    content.className = "vice-option-content";
+    content.innerHTML = `
+      <b>${escapeHtml(vice.name)}</b>
+      <span>${escapeHtml(vice.category)} - ${escapeHtml(vice.effect)}</span>
+    `;
+
+    label.append(input, content);
+    refs.procedureVicesPickerList.append(label);
+  });
+}
+
+function openProcedureVicesModal() {
+  renderProcedureVicesPicker();
+  refs.procedureVicesModal.hidden = false;
+  window.setTimeout(() => refs.procedureVicesPickerSearch.focus(), 0);
+}
+
+function closeProcedureVicesModal() {
+  refs.procedureVicesModal.hidden = true;
+}
+
+
+function procedureVicesTextLines() {
+  return selectedProcedureViceObjects().map((vice) => `- ${vice.name} (${vice.effect})`);
+}
+
+function procedureVicesHtmlItems() {
+  return selectedProcedureViceObjects().map((vice) => `<li>${escapeHtml(vice.name)} (${escapeHtml(vice.effect)})</li>`);
+}
+
+function buildViceSapdText() {
+  const selected = selectedProcedureViceObjects();
+  const vicesText = selected.length
+    ? selected.map((vice) => `- ${vice.name} (${vice.effect})`).join("\n")
+    : "- Aucun vice sélectionné";
+
+  return [
+    "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+    `👮‍♂️ Agents : ${refs.judge.value}`,
+    `📝 Lien de la MED : ${refs.linkMed.value}`,
+    `👤 Par : ${refs.name.value}`,
+    "",
+    ":closed_book: Vice de procédure :",
+    vicesText,
+    "",
+    "",
+    "",
+    "🚔 Poste de police : ",
+    "Merci de créer un fil pour contester ou répondre ou autres",
+    "",
+    "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+  ].join("\n");
 }
 
 function updateTotals() {
@@ -593,10 +1051,12 @@ function updateTotals() {
   if (refs.fineDouble.checked) fine *= 2;
   fine = Math.round(fine * (1 - reduction / 100));
   refs.fineTotal.value = formatMoney(fine);
+  saveCaseToStorage();
 }
 
 function updateJudgementTotals() {
   // Le jugement est saisi manuellement: les faits ne changent pas le temps ni l'amende.
+  saveCaseToStorage();
 }
 
 function categoryRank(fact) {
@@ -690,6 +1150,7 @@ function renderJudgementSelectedFacts() {
       const count = Math.max(1, Math.floor(Number(countInput.value) || 1));
       countInput.value = String(count);
       judgementState.factCounts.set(factName, count);
+      saveCaseToStorage();
     });
 
     countField.append(countText, countInput);
@@ -750,12 +1211,14 @@ function updatePrelimTime() {
     refs.prelimTimeTotal.readOnly = false;
     refs.prelimTimeTotal.inputMode = "numeric";
     refs.prelimTimeTotal.value = String(prelimState.tigValue);
+    saveCaseToStorage();
     return;
   }
 
   refs.prelimTimeTotal.readOnly = true;
   refs.prelimTimeTotal.removeAttribute("inputmode");
   refs.prelimTimeTotal.value = formatTime(prelimState.prisonMinutes);
+  saveCaseToStorage();
 }
 
 function getSuggestions() {
@@ -1088,12 +1551,14 @@ function buildOpeningText() {
   const lawyerDefenseLine = hasLawyer()
     ? `⚖️ ${lawyerName}, confirmez-vous ou contestez-vous le rapport présenté ?`
     : "";
-  const vices = refs.vices.value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => `- ${line}`)
-    .join("\n");
+  const vices = [
+    ...procedureVicesTextLines(),
+    ...refs.vices.value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => `- ${line}`)
+  ].join("\n");
 
   return [
     `Bonjour / Bonsoir à toutes et à tous.`,
@@ -1178,12 +1643,14 @@ function renderOpeningModal() {
   const civilParty = escapeHtml(CIVIL_PARTY_LABEL);
   const reportUrl = escapeHtml(REPORT_CHANNEL_URL);
   const facts = formatFactsForOpening(state.facts);
-  const vices = refs.vices.value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => `<li>${escapeHtml(line)}</li>`)
-    .join("");
+  const vices = [
+    ...procedureVicesHtmlItems(),
+    ...refs.vices.value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => `<li>${escapeHtml(line)}</li>`)
+  ].join("");
 
   refs.modalBody.innerHTML = `
     <div class="opening-document">
@@ -1484,12 +1951,17 @@ function matchesInfoSearch(fact, query) {
 }
 
 function switchView(target) {
+  const nextView = $(`#${target}View`);
+  if (!nextView) return;
   $$(".view").forEach((view) => view.classList.remove("active"));
-  $(`#${target}View`).classList.add("active");
+  nextView.classList.add("active");
   $$(".nav-link").forEach((button) => {
     button.classList.toggle("active", button.dataset.viewTarget === target);
   });
+  saveCaseToStorage();
 }
+
+refs.resetCase.addEventListener("click", resetCurrentCase);
 
 refs.factSearch.addEventListener("input", () => {
   state.pendingFact = factByName.has(refs.factSearch.value.trim()) ? refs.factSearch.value.trim() : "";
@@ -1569,11 +2041,17 @@ refs.prelimTimeTotal.addEventListener("input", () => {
   if (!prelimState.tigActive) return;
   syncTigValueFromTimeField();
 });
-refs.copyPrelimSapd.addEventListener("click", () => copyText(buildPrelimSapdText(), "Audience préliminaire copiée dans le presse-papier"));
+refs.copyPrelimSapd.addEventListener("click", () => {
+  if (!validateCaseBeforeCopy("prelim")) return;
+  copyText(buildPrelimSapdText(), "Audience préliminaire copiée dans le presse-papier");
+});
 refs.openPrelimHearing.addEventListener("click", openPrelimModal);
 
 refs.judgementAddFact.addEventListener("click", addJudgementFact);
-refs.copyJudgementSapd.addEventListener("click", () => copyText(buildJudgementSapdText(), "Jugement copié dans le presse-papier"));
+refs.copyJudgementSapd.addEventListener("click", () => {
+  if (!validateCaseBeforeCopy("judgement")) return;
+  copyText(buildJudgementSapdText(), "Jugement copié dans le presse-papier");
+});
 
 refs.addFact.addEventListener("click", addFact);
 refs.comparutionTigToggle.addEventListener("click", () => {
@@ -1592,9 +2070,15 @@ refs.timeTotal.addEventListener("input", () => {
 });
 refs.fineDouble.addEventListener("change", updateTotals);
 refs.reduction.addEventListener("input", updateTotals);
+refs.openVicesPicker.addEventListener("click", openProcedureVicesModal);
 refs.openHearing.addEventListener("click", openModal);
-refs.copySapd.addEventListener("click", () => copyText(buildSapdText(), "Texte copié dans le presse-papier"));
+refs.copySapd.addEventListener("click", () => {
+  copyText(buildSapdText(), "Texte copié dans le presse-papier");
+});
 refs.infoSearch.addEventListener("input", renderCodeTable);
+refs.copyVicesContest.addEventListener("click", () => copyText(buildViceSapdText(), "Vice SAPD copié"));
+refs.procedureVicesSearch.addEventListener("input", renderProcedureVicesTable);
+refs.procedureVicesPickerSearch.addEventListener("input", renderProcedureVicesPicker);
 refs.paletteToggle.addEventListener("click", (event) => {
   event.stopPropagation();
   toggleColorPalette();
@@ -1603,6 +2087,8 @@ refs.colorPalette.addEventListener("click", (event) => event.stopPropagation());
 
 [refs.prelimForm, refs.dojForm, refs.judgementForm].forEach((form) => {
   form.addEventListener("submit", (event) => event.preventDefault());
+  form.addEventListener("input", saveCaseToStorage);
+  form.addEventListener("change", saveCaseToStorage);
 });
 
 $$("[data-view-target]").forEach((button) => {
@@ -1611,10 +2097,12 @@ $$("[data-view-target]").forEach((button) => {
 
 $$("[data-close-modal]").forEach((element) => element.addEventListener("click", closeModal));
 $$("[data-close-copy-modal]").forEach((element) => element.addEventListener("click", closeManualCopyModal));
+$$("[data-close-procedure-vices-modal]").forEach((element) => element.addEventListener("click", closeProcedureVicesModal));
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !refs.modal.hidden) closeModal();
   if (event.key === "Escape" && !refs.copyFallbackModal.hidden) closeManualCopyModal();
+  if (event.key === "Escape" && !refs.procedureVicesModal.hidden) closeProcedureVicesModal();
   if (event.key === "Escape" && !refs.colorPalette.hidden) closeColorPalette();
 });
 
@@ -1623,12 +2111,17 @@ document.addEventListener("click", () => {
 });
 
 renderColorPalette();
-renderPrelimSelectedFacts();
-renderJudgementSelectedFacts();
-renderSelectedFacts();
 renderCodeTable();
-updateLawyerControl();
-updatePrelimLawyerControl();
-updatePrelimTime();
-updateJudgementTotals();
-updateTotals();
+renderProcedureVicesTable();
+if (!loadSavedCase()) {
+  renderPrelimSelectedFacts();
+  renderJudgementSelectedFacts();
+  renderSelectedFacts();
+  renderSelectedProcedureVices();
+  updateComparutionDecisionLock();
+  updateLawyerControl();
+  updatePrelimLawyerControl();
+  updatePrelimTime();
+  updateJudgementTotals();
+  updateTotals();
+}
