@@ -114,6 +114,7 @@ Détournement de fond;2000000;0;Peine fédérale;Bracelet
 Harcèlement;500000;35;Délit majeur;
 Blachiment d'argent;500000;25;Délit majeur;
 Faux témoignage;500000;20;Délit majeur;
+Braquage de coiffeur;150000;20;Délit Mineur;
 `;
 
 function normalizeCategorie(value) {
