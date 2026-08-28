@@ -116,7 +116,7 @@ Blachiment d'argent;500000;25;Délit majeur;
 Faux témoignage;500000;20;Délit majeur;
 Braquage de coiffeur;150000;20;Délit Mineur;
 Complicité de Braquage de coiffeur;150000;20;Délit Mineur;
-Transport de marchandises illégal;350000;Délit majeur;
+Transport de marchandises illégal;350000;15;Délit majeur;
 `;
 
 function normalizeCategorie(value) {
