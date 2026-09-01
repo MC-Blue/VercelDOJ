@@ -1,63 +1,51 @@
 const assert = require("node:assert/strict");
+const {
+  calculateSanctions,
+  clampFactCount,
+  clampReduction,
+  clampTigValue,
+  combinedReduction,
+  formatTime,
+  sumReductions
+} = require("./calculations.js");
 
-const facts = new Map([
-  ["Outrage à agent", { amende: 100000, temps: 10 }],
-  ["Refus d'obtempérer", { amende: 80000, temps: 10 }],
-  ["Braquage de Fleeca", { amende: 600000, temps: 25 }]
-]);
-
-const procedureVices = [
-  { id: "reduction-30", type: "reduction", reduction: 30 },
-  { id: "reduction-50", type: "reduction", reduction: 50 },
-  { id: "annulation", type: "annulation" },
-  { id: "acquittement", type: "acquittement" }
+const facts = [
+  { nom: "Outrage à agent", amende: 100000, temps: 10 },
+  { nom: "Refus d'obtempérer", amende: 80000, temps: 10 },
+  { nom: "Braquage de Fleeca", amende: 600000, temps: 25 }
 ];
 
-function clampReduction(value) {
-  return Math.min(100, Math.max(0, Number(value) || 0));
-}
-
-function clampTigValue(value) {
-  return Math.min(300, Math.max(1, Number(value) || 1));
-}
-
-function formatTime(minutes) {
-  const hours = Math.floor(minutes / 60) % 24;
-  const mins = minutes % 60;
-  return `${hours}h${String(mins).padStart(2, "0")}`;
-}
-
-function calculateComparution(selectedFacts, { reduction = 0, fineDouble = false, tigActive = false, tigValue = 1 } = {}) {
-  const percent = clampReduction(reduction);
-  const rawMinutes = selectedFacts.reduce((sum, fact) => sum + (facts.get(fact)?.temps || 0), 0);
-  const rawFine = selectedFacts.reduce((sum, fact) => sum + (facts.get(fact)?.amende || 0), 0);
-  const minutes = Math.round(rawMinutes * (1 - percent / 100));
-  const fine = Math.round((fineDouble ? rawFine * 2 : rawFine) * (1 - percent / 100));
-
-  return {
-    minutes,
-    timeText: tigActive ? `${clampTigValue(tigValue)} T.I.G` : formatTime(minutes),
-    fine
-  };
-}
-
-function selectedProcedureReduction(selectedIds) {
-  const selected = selectedIds.map((id) => procedureVices.find((vice) => vice.id === id)).filter(Boolean);
-  if (selected.some((vice) => vice.type === "acquittement")) return 100;
-  return Math.max(0, ...selected.filter((vice) => vice.type === "reduction").map((vice) => vice.reduction || 0));
-}
-
-assert.equal(calculateComparution(["Outrage à agent", "Refus d'obtempérer"]).timeText, "0h20");
-assert.deepEqual(calculateComparution(["Braquage de Fleeca"], { reduction: 50 }), {
+assert.equal(sumReductions([30, 50]), 80, "les réductions de vice doivent s'additionner");
+assert.equal(sumReductions([30, 50, 40]), 100, "le cumul des vices doit être plafonné à 100 %");
+assert.equal(combinedReduction(10, [30, 50]), 90, "la réduction manuelle doit rester séparée puis s'ajouter");
+assert.equal(combinedReduction(40, [30, 50]), 100, "la réduction totale doit être plafonnée à 100 %");
+assert.deepEqual(calculateSanctions(facts.slice(0, 2)), {
+  rawMinutes: 20,
+  rawFine: 180000,
+  minutes: 20,
+  fine: 180000
+});
+assert.deepEqual(calculateSanctions([facts[2]], { reduction: 50 }), {
+  rawMinutes: 25,
+  rawFine: 600000,
   minutes: 13,
-  timeText: "0h13",
   fine: 300000
 });
-assert.equal(calculateComparution(["Outrage à agent"], { fineDouble: true, reduction: 25 }).fine, 150000);
-assert.equal(calculateComparution(["Braquage de Fleeca"], { tigActive: true, tigValue: 12 }).timeText, "12 T.I.G");
-assert.deepEqual([clampTigValue(0), clampTigValue(999)], [1, 300]);
-assert.equal(selectedProcedureReduction(["reduction-30", "reduction-50"]), 50);
-assert.equal(selectedProcedureReduction(["reduction-30", "acquittement"]), 100);
-assert.equal(selectedProcedureReduction(["annulation"]), 0);
+assert.equal(calculateSanctions([facts[0]], { fineDouble: true, reduction: 25 }).fine, 150000);
+assert.deepEqual(
+  calculateSanctions(facts.slice(0, 2), { annulledFacts: ["Outrage à agent"] }),
+  { rawMinutes: 10, rawFine: 80000, minutes: 10, fine: 80000 },
+  "un fait ciblé par un vice d'annulation doit être exclu des sanctions"
+);
+assert.equal(clampReduction(-20), 0);
+assert.equal(clampReduction(120), 100);
+assert.equal(clampTigValue(12), 12);
+assert.equal(clampTigValue(0), 1);
+assert.equal(clampTigValue(999), 300);
+assert.equal(clampTigValue("1.5", 12), 12, "les TIG décimaux doivent être refusés");
+assert.equal(clampTigValue("1e2", 12), 12, "la notation exponentielle doit être refusée");
+assert.equal(clampFactCount("", 5), 5, "un compteur vide doit conserver sa valeur précédente");
+assert.equal(clampFactCount("2.5", 5), 5, "un compteur décimal doit être refusé");
+assert.equal(formatTime(1500), "25h00", "les durées ne doivent pas reboucler après 24 heures");
 
-console.log("8/8 tests réussis.");
+console.log("18/18 tests réussis.");

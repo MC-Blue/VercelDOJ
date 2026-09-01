@@ -1,9 +1,17 @@
+const {
+  calculateSanctions,
+  clampFactCount,
+  clampTigValue,
+  formatTime,
+  sumReductions
+} = DojCalculations;
+
 const rawCodePenal = String.raw`
 Usage abusif du klaxon (Contravention);20000;0;0
 Circulation à contre-sens (Contravention);30000;0;0
 Circulation hors-route (Contravention);80000;0;0
 Stationnement dangereux / interdit (Contravention);30000;0;0
-Non respect d'un feu rouge/stop (Contravention);30000;0;0
+Non-respect d'un feu rouge/stop (Contravention);30000;0;0
 Dépassement dangereux (Contravention);5000;0;0
 Véhicule non en état (Contravention);40000;0;0
 Excès de vitesse >80km/h (Contravention);50000;0;0
@@ -19,7 +27,7 @@ Outrage à la cour (Délit mineur);200000;10;0
 Mise en danger de la vie d'autrui (Délit mineur);200000;10;0
 Port d'arme illégal légère (Délit mineur);200000;10;0
 Exhibition d'arme de catégorie A (Délit mineur);50000;15;0
-Trouble à l'ordre publique (Délit mineur);30000;10;0
+Trouble à l'ordre public (Délit mineur);30000;10;0
 Refus d'obtempérer (Délit mineur);80000;10;0
 Menace verbale / intimidation envers agent de l'état (Délit mineur);200000;5;0
 Possession d'argent sale (x2 Possession) (Délit mineur);0;5;0
@@ -40,8 +48,8 @@ Course illégale (Délit mineur);200000;10;0
 Exhibition d'arme de catégorie B/C (Délit mineur);100000;10;0
 Intrusion;500000;20;Délit majeur;
 Port du Gilet Pare-Balle (Délit mineur);200000;10;0
-Violence Physique légére (Délit mineur);200000;10;0
-Violence Physique légére sur agent de l'état (Délit mineur);300000;10;0
+Violence physique légère (Délit mineur);200000;10;0
+Violence physique légère sur agent de l'état (Délit mineur);300000;10;0
 Tentative de corruption (Délit mineur);60000;10;0
 Attaque de fourgon blindé (Délit mineur);200000;10;0
 Diffamation (Délit mineur);50000;10;0
@@ -101,7 +109,7 @@ Complicité d'Attaque de bâtiment Gouvernemental;500000;15;Crime;Bracelet
 Complicité de Meurtre sur civil;500000;15;Crime;Bracelet
 Complicité de Meurtre sur agent de l'état;1000000;30;Crime;Bracelet
 Complicité de Terrorisme (Crime);2000000;30;0
-Non respect des règles du bracelet;3000000;30;Crime;Bracelet
+Non-respect des règles du bracelet;3000000;30;Crime;Bracelet
 Meurtre sur civil (Peine fédérale);0;0;0
 Meurtre sur agent de l'état (Peine fédérale);0;0;0
 Terrorisme (Peine fédérale);0;0;0
@@ -110,13 +118,13 @@ Braquage de banque centrale;650000;30;Crime;Bracelet
 Complicité de Braquage de banque centrale;320000;15;Crime;Bracelet
 Cyber Attaque;650000;30;Crime;
 Complicité de Cyber Attaque;325000;15;Crime;
-Détournement de fond;2000000;0;Peine fédérale;Bracelet
+Détournement de fonds;2000000;0;Peine fédérale;Bracelet
 Harcèlement;500000;35;Délit majeur;
-Blachiment d'argent;500000;25;Délit majeur;
+Blanchiment d'argent;500000;25;Délit majeur;
 Faux témoignage;500000;20;Délit majeur;
 Braquage de coiffeur;150000;20;Délit Mineur;
 Complicité de Braquage de coiffeur;150000;20;Délit Mineur;
-Transport de marchandises illégal;350000;15;Délit majeur;
+Transport de marchandises illégales;350000;15;Délit majeur;
 `;
 
 function normalizeCategorie(value) {
@@ -166,22 +174,34 @@ const state = {
   prisonMinutes: 0,
   tigValue: 1,
   lawyerActive: false,
-  procedureVices: []
+  procedureVices: [],
+  procedureViceTargets: {},
+  decisionBeforeAcquittement: "",
+  acquittementLocked: false
 };
 
 const prelimState = {
   facts: [],
   pendingFact: "",
   tigActive: false,
+  rawPrisonMinutes: 0,
   prisonMinutes: 0,
   tigValue: 1,
-  lawyerActive: false
+  lawyerActive: false,
+  procedureVices: [],
+  procedureViceTargets: {}
 };
 
 const judgementState = {
   facts: [],
   pendingFact: "",
   factCounts: new Map()
+};
+
+const suggestionIndices = {
+  doj: 0,
+  prelim: 0,
+  judgement: 0
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -283,11 +303,20 @@ const refs = {
   prelimAddFact: $("#prelimAddFact"),
   prelimTimeTotal: $("#prelimTimeTotal"),
   tigToggle: $("#tigToggle"),
+  prelimTigValueField: $("#prelimTigValueField"),
+  prelimTigValue: $("#prelimTigValue"),
+  prelimTigHint: $("#prelimTigHint"),
+  prelimViceReduction: $("#prelimViceReduction"),
+  prelimTimeCapNotice: $("#prelimTimeCapNotice"),
   prelimLawyerToggle: $("#prelimLawyerToggle"),
   prelimLawyerName: $("#prelimLawyerName"),
   prelimLawyerNameField: $("#prelimLawyerNameField"),
   copyPrelimSapd: $("#copyPrelimSapd"),
   openPrelimHearing: $("#openPrelimHearing"),
+  openPrelimVicesPicker: $("#openPrelimVicesPicker"),
+  copyPrelimVicesContest: $("#copyPrelimVicesContest"),
+  prelimSelectedProcedureVices: $("#prelimSelectedProcedureVices"),
+  prelimVicesCounter: $("#prelimVicesCounter"),
   judgementName: $("#judgementName"),
   judgementLinkMed: $("#judgementLinkMed"),
   judgementJudge: $("#judgementJudge"),
@@ -309,17 +338,21 @@ const refs = {
   addFact: $("#addFact"),
   timeTotal: $("#timeTotal"),
   comparutionTigToggle: $("#comparutionTigToggle"),
+  comparutionTigValueField: $("#comparutionTigValueField"),
+  comparutionTigValue: $("#comparutionTigValue"),
+  comparutionTigHint: $("#comparutionTigHint"),
   lawyerToggle: $("#lawyerToggle"),
   lawyerName: $("#lawyerName"),
   lawyerNameField: $("#lawyerNameField"),
   fineTotal: $("#fineTotal"),
   fineDouble: $("#fineDouble"),
-  reduction: $("#reduction"),
+  viceReduction: $("#viceReduction"),
   openHearing: $("#openHearing"),
   openVicesPicker: $("#openVicesPicker"),
   copySapd: $("#copySapd"),
   copyVicesContest: $("#copyVicesContest"),
   selectedProcedureVices: $("#selectedProcedureVices"),
+  vicesCounter: $("#vicesCounter"),
   vices: $("#vices"),
   modal: $("#modal"),
   modalTitle: $("#modalTitle"),
@@ -327,17 +360,36 @@ const refs = {
   copyFallbackModal: $("#copyFallbackModal"),
   manualCopyText: $("#manualCopyText"),
   procedureVicesModal: $("#procedureVicesModal"),
+  procedureVicesModalTitle: $("#procedureVicesModalTitle"),
   procedureVicesPickerSearch: $("#procedureVicesPickerSearch"),
+  procedureVicesPickerCount: $("#procedureVicesPickerCount"),
   procedureVicesPickerList: $("#procedureVicesPickerList"),
+  finishProcedureVices: $("#finishProcedureVices"),
   toast: $("#toast"),
+  toastTitle: $("#toastTitle"),
+  toastMessage: $("#toastMessage"),
   infoSearch: $("#infoSearch"),
   codeTable: $("#codeTable"),
   procedureVicesSearch: $("#procedureVicesSearch"),
-  procedureVicesTable: $("#procedureVicesTable")
+  procedureVicesTable: $("#procedureVicesTable"),
+  resetConfirmModal: $("#resetConfirmModal"),
+  resetConfirmText: $("#resetConfirmText"),
+  cancelReset: $("#cancelReset"),
+  confirmReset: $("#confirmReset")
 };
 
 const factByName = new Map(codePenal.map((fact) => [fact.nom, fact]));
 const procedureViceById = new Map(PROCEDURE_VICES.map((vice) => [vice.id, vice]));
+const FACT_NAME_MIGRATIONS = new Map([
+  ["Non respect d'un feu rouge/stop (Contravention)", "Non-respect d'un feu rouge/stop (Contravention)"],
+  ["Trouble à l'ordre publique (Délit mineur)", "Trouble à l'ordre public (Délit mineur)"],
+  ["Violence Physique légére (Délit mineur)", "Violence physique légère (Délit mineur)"],
+  ["Violence Physique légére sur agent de l'état (Délit mineur)", "Violence physique légère sur agent de l'état (Délit mineur)"],
+  ["Non respect des règles du bracelet (Crime)", "Non-respect des règles du bracelet (Crime)"],
+  ["Détournement de fond (Peine fédérale)", "Détournement de fonds (Peine fédérale)"],
+  ["Blachiment d'argent (Délit majeur)", "Blanchiment d'argent (Délit majeur)"],
+  ["Transport de marchandises illégal (Délit majeur)", "Transport de marchandises illégales (Délit majeur)"]
+]);
 
 const CATEGORY_SEVERITY = new Map([
   ["peine federale", 0],
@@ -347,10 +399,6 @@ const CATEGORY_SEVERITY = new Map([
   ["contravention", 4],
   ["autre", 5]
 ]);
-
-function clampReduction(value) {
-  return Math.min(100, Math.max(0, Number(value) || 0));
-}
 
 function formatMoney(value) {
   return new Intl.NumberFormat("fr-FR", {
@@ -363,10 +411,35 @@ function formatMoney(value) {
     .replace("$US", "$");
 }
 
-function formatTime(minutes) {
-  const hours = Math.floor(minutes / 60) % 24;
-  const mins = minutes % 60;
-  return `${hours}h${String(mins).padStart(2, "0")}`;
+function factSeverityClass(fact) {
+  const category = normalizeSearchText(fact?.categorie || "");
+  if (category.includes("peine federale")) return "severity-federal";
+  if (category.includes("crime")) return "severity-crime";
+  if (category.includes("delit majeur")) return "severity-major";
+  if (category.includes("delit mineur")) return "severity-minor";
+  return "severity-contravention";
+}
+
+function appendFactCardContent(container, factName) {
+  const fact = factByName.get(factName);
+  const heading = document.createElement("span");
+  heading.className = "fact-card-heading";
+  appendFactDisplay(heading, factName);
+
+  const meta = document.createElement("span");
+  meta.className = "fact-card-meta";
+  [
+    fact?.categorie || "Autre",
+    `${fact?.temps ?? 0} min`,
+    formatMoney(fact?.amende ?? 0)
+  ].forEach((value) => {
+    const chip = document.createElement("span");
+    chip.className = "fact-meta-chip";
+    chip.textContent = value;
+    meta.append(chip);
+  });
+
+  container.append(heading, meta);
 }
 
 function formatFactsForCopy(facts, countsOverride = null) {
@@ -392,10 +465,6 @@ function formatFactsForOpening(facts, countsOverride = null) {
   });
 
   return Array.from(counts, ([fact, count]) => `<li>${escapeHtml(fact)}${count > 1 ? `x${count}` : ""}</li>`).join("");
-}
-
-function clampTigValue(value) {
-  return Math.min(300, Math.max(1, Number(value) || 1));
 }
 
 function normalizeSearchText(value) {
@@ -499,25 +568,49 @@ function searchFacts(query) {
 }
 
 function updatePrelimPrisonMinutes() {
-  const totalMinutes = prelimState.facts.reduce((sum, name) => sum + (factByName.get(name)?.temps ?? 0), 0);
-  prelimState.prisonMinutes = Math.min(60, totalMinutes);
+  const reduction = selectedProcedureReduction(prelimState);
+  const sanctions = calculateSanctions(
+    prelimState.facts.map((name) => factByName.get(name)).filter(Boolean),
+    {
+      reduction,
+      annulledFacts: selectedAnnulledFacts(prelimState, prelimState.facts)
+    }
+  );
+  prelimState.rawPrisonMinutes = sanctions.minutes;
+  prelimState.prisonMinutes = Math.min(60, sanctions.minutes);
+  refs.prelimViceReduction.value = `${reduction} %`;
 }
 
-function syncComparutionTigValueFromTimeField() {
-  state.tigValue = clampTigValue(refs.timeTotal.value);
-  refs.timeTotal.value = String(state.tigValue);
+function commitComparutionTigValue() {
+  state.tigValue = clampTigValue(refs.comparutionTigValue.value, state.tigValue);
+  refs.comparutionTigValue.value = String(state.tigValue);
+  refs.comparutionTigHint.hidden = true;
   return state.tigValue;
 }
 
-function syncTigValueFromTimeField() {
-  prelimState.tigValue = clampTigValue(refs.prelimTimeTotal.value);
-  refs.prelimTimeTotal.value = String(prelimState.tigValue);
+function commitPrelimTigValue() {
+  prelimState.tigValue = clampTigValue(refs.prelimTigValue.value, prelimState.tigValue);
+  refs.prelimTigValue.value = String(prelimState.tigValue);
+  refs.prelimTigHint.hidden = true;
   return prelimState.tigValue;
+}
+
+function updateTigDraft(input, targetState, hint, summary) {
+  const value = input.value.trim();
+  const valid = /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 300;
+  hint.hidden = valid || !value;
+  if (valid) {
+    targetState.tigValue = Number(value);
+    summary.value = `${value} T.I.G`;
+  } else {
+    summary.value = value ? `${targetState.tigValue} T.I.G` : "— T.I.G";
+  }
+  saveCaseToStorage();
 }
 
 function getComparutionTimeText() {
   return state.tigActive
-    ? `${syncComparutionTigValueFromTimeField()} T.I.G`
+    ? `${commitComparutionTigValue()} T.I.G`
     : refs.timeTotal.value;
 }
 
@@ -542,6 +635,7 @@ function updateLawyerControl() {
   refs.lawyerToggle.setAttribute("aria-pressed", String(state.lawyerActive));
   refs.lawyerNameField.hidden = !state.lawyerActive;
   if (!state.lawyerActive) refs.lawyerName.value = "";
+  updateFieldVisualState(refs.lawyerName);
   saveCaseToStorage();
 }
 
@@ -550,7 +644,20 @@ function updatePrelimLawyerControl() {
   refs.prelimLawyerToggle.setAttribute("aria-pressed", String(prelimState.lawyerActive));
   refs.prelimLawyerNameField.hidden = !prelimState.lawyerActive;
   if (!prelimState.lawyerActive) refs.prelimLawyerName.value = "";
+  updateFieldVisualState(refs.prelimLawyerName);
   saveCaseToStorage();
+}
+
+function updateFieldVisualState(input) {
+  if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement || input instanceof HTMLSelectElement)) return;
+  const field = input.closest(".field, .inline-field, .tig-value-field");
+  if (!field || input.readOnly || input.disabled || ["radio", "checkbox"].includes(input.type)) return;
+  field.classList.toggle("is-filled", Boolean(input.value.trim()));
+}
+
+function refreshFieldVisualStates() {
+  $$(".field input, .field textarea, .field select, .inline-field input, .tig-value-field input")
+    .forEach(updateFieldVisualState);
 }
 
 function getStoredPaletteId() {
@@ -667,17 +774,39 @@ function serializeFactCounts(counts) {
 function parseFactCounts(entries) {
   const counts = new Map();
   (Array.isArray(entries) ? entries : []).forEach(([fact, count]) => {
-    if (factByName.has(fact)) counts.set(fact, Math.max(1, Math.floor(Number(count) || 1)));
+    const migratedFact = FACT_NAME_MIGRATIONS.get(fact) ?? fact;
+    if (factByName.has(migratedFact)) counts.set(migratedFact, clampFactCount(count));
   });
   return counts;
 }
 
 function validFacts(facts) {
-  return (Array.isArray(facts) ? facts : []).filter((fact) => factByName.has(fact));
+  return (Array.isArray(facts) ? facts : [])
+    .map((fact) => FACT_NAME_MIGRATIONS.get(fact) ?? fact)
+    .filter((fact) => factByName.has(fact));
 }
 
 function validProcedureVices(vices) {
   return (Array.isArray(vices) ? vices : []).filter((id) => procedureViceById.has(id));
+}
+
+function validProcedureViceTargets(targets, selectedVices, facts) {
+  const validTargets = {};
+  const source = targets && typeof targets === "object" ? targets : {};
+  selectedVices.forEach((id) => {
+    const vice = procedureViceById.get(id);
+    const migratedFact = FACT_NAME_MIGRATIONS.get(source[id]) ?? source[id];
+    if (vice?.type === "annulation" && facts.includes(migratedFact)) validTargets[id] = migratedFact;
+  });
+  return validTargets;
+}
+
+function pruneProcedureViceTargets(targetState = state, facts = state.facts) {
+  Object.entries(targetState.procedureViceTargets).forEach(([id, fact]) => {
+    if (!targetState.procedureVices.includes(id) || !facts.includes(fact)) {
+      delete targetState.procedureViceTargets[id];
+    }
+  });
 }
 
 function getCaseSnapshot() {
@@ -692,12 +821,13 @@ function getCaseSnapshot() {
       lawyerActive: state.lawyerActive,
       lawyerName: refs.lawyerName.value,
       decision: currentDecision(),
+      decisionBeforeAcquittement: state.decisionBeforeAcquittement,
       facts: [...state.facts],
       tigActive: state.tigActive,
       tigValue: state.tigValue,
       fineDouble: refs.fineDouble.checked,
-      reduction: refs.reduction.value,
       procedureVices: [...state.procedureVices],
+      procedureViceTargets: { ...state.procedureViceTargets },
       vices: refs.vices.value
     },
     prelim: {
@@ -708,7 +838,9 @@ function getCaseSnapshot() {
       lawyerName: refs.prelimLawyerName.value,
       facts: [...prelimState.facts],
       tigActive: prelimState.tigActive,
-      tigValue: prelimState.tigValue
+      tigValue: prelimState.tigValue,
+      procedureVices: [...prelimState.procedureVices],
+      procedureViceTargets: { ...prelimState.procedureViceTargets }
     },
     judgement: {
       name: refs.judgementName.value,
@@ -745,15 +877,21 @@ function restoreCaseSnapshot(snapshot, shouldSwitchView = true) {
   refs.judge.value = comparution.judge || "";
   refs.lawyerName.value = comparution.lawyerName || "";
   refs.fineDouble.checked = Boolean(comparution.fineDouble);
-  refs.reduction.value = String(clampReduction(comparution.reduction || 0));
   refs.vices.value = comparution.vices || "";
   setRadioValue("decision", comparution.decision || "");
   state.facts = validFacts(comparution.facts);
   state.pendingFact = "";
   state.tigActive = Boolean(comparution.tigActive);
-  state.tigValue = clampTigValue(comparution.tigValue || 1);
+  state.tigValue = clampTigValue(comparution.tigValue ?? 1);
   state.lawyerActive = Boolean(comparution.lawyerActive);
   state.procedureVices = validProcedureVices(comparution.procedureVices);
+  state.procedureViceTargets = validProcedureViceTargets(
+    comparution.procedureViceTargets,
+    state.procedureVices,
+    state.facts
+  );
+  state.decisionBeforeAcquittement = comparution.decisionBeforeAcquittement || "";
+  state.acquittementLocked = false;
 
   refs.prelimName.value = prelim.name || "";
   refs.prelimLinkMed.value = prelim.linkMed || "";
@@ -762,8 +900,14 @@ function restoreCaseSnapshot(snapshot, shouldSwitchView = true) {
   prelimState.facts = validFacts(prelim.facts);
   prelimState.pendingFact = "";
   prelimState.tigActive = Boolean(prelim.tigActive);
-  prelimState.tigValue = clampTigValue(prelim.tigValue || 1);
+  prelimState.tigValue = clampTigValue(prelim.tigValue ?? 1);
   prelimState.lawyerActive = Boolean(prelim.lawyerActive);
+  prelimState.procedureVices = validProcedureVices(prelim.procedureVices);
+  prelimState.procedureViceTargets = validProcedureViceTargets(
+    prelim.procedureViceTargets,
+    prelimState.procedureVices,
+    prelimState.facts
+  );
 
   refs.judgementName.value = judgement.name || "";
   refs.judgementLinkMed.value = judgement.linkMed || "";
@@ -782,13 +926,16 @@ function restoreCaseSnapshot(snapshot, shouldSwitchView = true) {
   updatePrelimLawyerControl();
   updatePrelimPrisonMinutes();
   renderSelectedFacts();
-  renderSelectedProcedureVices();
-  applyProcedureVicesEffects();
+  renderSelectedProcedureVices("doj");
+  renderSelectedProcedureVices("prelim");
+  applyProcedureVicesEffects("doj");
+  applyProcedureVicesEffects("prelim");
   renderPrelimSelectedFacts();
   renderJudgementSelectedFacts();
   updatePrelimTime();
   updateJudgementTotals();
   updateTotals();
+  refreshFieldVisualStates();
   if (shouldSwitchView && snapshot.activeView) switchView(snapshot.activeView);
 
   isRestoringCase = false;
@@ -807,9 +954,38 @@ function loadSavedCase() {
   }
 }
 
-function resetCurrentCase() {
-  const snapshot = getCaseSnapshot();
+let pendingResetView = "";
+
+function getResettableView() {
   const view = currentViewName();
+  return ["doj", "prelim", "judgement"].includes(view) ? view : "";
+}
+
+function requestCurrentCaseReset() {
+  pendingResetView = getResettableView();
+  if (!pendingResetView) {
+    showToast("Ouvre une comparution, une audience ou un jugement à réinitialiser.");
+    return;
+  }
+
+  const labels = {
+    doj: "de la comparution",
+    prelim: "de l’audience préliminaire",
+    judgement: "du jugement"
+  };
+  refs.resetConfirmText.textContent = `Toutes les données ${labels[pendingResetView]} seront effacées. Les autres dossiers seront conservés.`;
+  openAccessibleModal(refs.resetConfirmModal, refs.cancelReset);
+}
+
+function closeResetConfirmModal() {
+  pendingResetView = "";
+  closeAccessibleModal(refs.resetConfirmModal);
+}
+
+function performCurrentCaseReset() {
+  const view = pendingResetView;
+  if (!view) return;
+  const snapshot = getCaseSnapshot();
 
   if (view === "prelim") {
     snapshot.prelim = {};
@@ -817,14 +993,11 @@ function resetCurrentCase() {
     snapshot.judgement = {};
   } else if (view === "doj") {
     snapshot.comparution = {};
-  } else {
-    snapshot.comparution = {};
-    snapshot.prelim = {};
-    snapshot.judgement = {};
   }
 
   snapshot.activeView = view;
   restoreCaseSnapshot(snapshot, false);
+  closeResetConfirmModal();
   showToast("Dossier réinitialisé.");
 }
 
@@ -833,11 +1006,13 @@ function validateCaseBeforeCopy(type) {
     doj: [
       [refs.name.value.trim(), "Nom manquant"],
       [state.facts.length, "Aucun fait sélectionné"],
-      [currentDecision(), "Décision non choisie"]
+      [currentDecision(), "Décision non choisie"],
+      [!hasUnassignedAnnulationVice(), "Sélectionne le fait concerné par chaque annulation"]
     ],
     prelim: [
       [refs.prelimName.value.trim(), "Nom manquant"],
-      [prelimState.facts.length, "Aucun fait sélectionné"]
+      [prelimState.facts.length, "Aucun fait sélectionné"],
+      [!hasUnassignedAnnulationVice("prelim"), "Sélectionne le fait concerné par chaque annulation"]
     ],
     judgement: [
       [refs.judgementName.value.trim(), "Nom manquant"],
@@ -853,12 +1028,41 @@ function validateCaseBeforeCopy(type) {
   return false;
 }
 
-function selectedProcedureViceObjects() {
-  return state.procedureVices.map((id) => procedureViceById.get(id)).filter(Boolean);
+let procedureVicesContext = "doj";
+
+function getProcedureVicesConfig(context = procedureVicesContext) {
+  if (context === "prelim") {
+    return {
+      context,
+      label: "Audience préliminaire",
+      targetState: prelimState,
+      facts: prelimState.facts,
+      container: refs.prelimSelectedProcedureVices
+    };
+  }
+
+  return {
+    context: "doj",
+    label: "Comparution",
+    targetState: state,
+    facts: state.facts,
+    container: refs.selectedProcedureVices
+  };
 }
 
-function isProcedureViceSelected(id) {
-  return state.procedureVices.includes(id);
+function hasUnassignedAnnulationVice(context = "doj") {
+  const { targetState, facts } = getProcedureVicesConfig(context);
+  return selectedProcedureViceObjects(targetState).some((vice) => (
+    vice.type === "annulation" && !facts.includes(targetState.procedureViceTargets[vice.id])
+  ));
+}
+
+function selectedProcedureViceObjects(targetState = state) {
+  return targetState.procedureVices.map((id) => procedureViceById.get(id)).filter(Boolean);
+}
+
+function isProcedureViceSelected(id, targetState = state) {
+  return targetState.procedureVices.includes(id);
 }
 
 function procedureViceMatches(vice, query) {
@@ -867,14 +1071,23 @@ function procedureViceMatches(vice, query) {
   return normalizeSearchText(`${vice.category} ${vice.name} ${vice.effect}`).includes(normalizedQuery);
 }
 
-function selectedProcedureReduction() {
-  const selected = selectedProcedureViceObjects();
+function selectedProcedureReduction(targetState = state) {
+  const selected = selectedProcedureViceObjects(targetState);
   if (selected.some((vice) => vice.type === "acquittement")) return 100;
-  return Math.max(0, ...selected.filter((vice) => vice.type === "reduction").map((vice) => vice.reduction || 0));
+  return sumReductions(selected.filter((vice) => vice.type === "reduction").map((vice) => vice.reduction || 0));
+}
+
+function selectedAnnulledFacts(targetState = state, facts = state.facts) {
+  return Array.from(new Set(
+    selectedProcedureViceObjects(targetState)
+      .filter((vice) => vice.type === "annulation")
+      .map((vice) => targetState.procedureViceTargets[vice.id])
+      .filter((fact) => facts.includes(fact))
+  ));
 }
 
 function hasSelectedAcquittementVice() {
-  return selectedProcedureViceObjects().some((vice) => vice.type === "acquittement");
+  return selectedProcedureViceObjects(state).some((vice) => vice.type === "acquittement");
 }
 
 function setComparutionAcquittement() {
@@ -884,34 +1097,64 @@ function setComparutionAcquittement() {
 
 function updateComparutionDecisionLock() {
   const locked = hasSelectedAcquittementVice();
+  if (locked && !state.acquittementLocked) {
+    const selectedDecision = $$('input[name="decision"]:checked').find((input) => (
+      !normalizeSearchText(input.value).includes("acquitt")
+    ));
+    if (selectedDecision) state.decisionBeforeAcquittement = selectedDecision.value;
+  }
+
   $$('input[name="decision"]').forEach((input) => {
     const isAcquittement = normalizeSearchText(input.value).includes("acquitt");
     const label = input.closest("label");
     if (label) label.hidden = locked ? !isAcquittement : isAcquittement;
     input.disabled = locked && !isAcquittement;
-    if (!locked && isAcquittement && input.checked) input.checked = false;
+    if (!locked && isAcquittement) input.checked = false;
   });
 
-  if (locked) setComparutionAcquittement();
+  if (locked) {
+    setComparutionAcquittement();
+  } else if (state.acquittementLocked && state.decisionBeforeAcquittement) {
+    setRadioValue("decision", state.decisionBeforeAcquittement);
+  }
+  state.acquittementLocked = locked;
 }
 
-function applyProcedureVicesEffects() {
-  const reduction = selectedProcedureReduction();
-  refs.reduction.value = String(reduction);
+function applyProcedureVicesEffects(context = "doj") {
+  if (context === "prelim") {
+    updatePrelimPrisonMinutes();
+    updatePrelimTime();
+    return;
+  }
   updateComparutionDecisionLock();
   updateTotals();
 }
 
-function renderSelectedProcedureVices() {
-  refs.selectedProcedureVices.innerHTML = "";
+function renderSelectedProcedureVices(context = "doj") {
+  const { targetState, facts, container } = getProcedureVicesConfig(context);
+  const counter = context === "prelim" ? refs.prelimVicesCounter : refs.vicesCounter;
+  const viceCount = targetState.procedureVices.length;
+  counter.textContent = String(viceCount);
+  counter.setAttribute("aria-label", `${viceCount} vice${viceCount > 1 ? "s" : ""} sélectionné${viceCount > 1 ? "s" : ""}`);
+  container.classList.toggle("has-items", viceCount > 0);
+  container.innerHTML = "";
 
-  selectedProcedureViceObjects().forEach((vice) => {
+  selectedProcedureViceObjects(targetState).forEach((vice, index) => {
     const item = document.createElement("div");
-    item.className = "selected-item";
+    item.className = `selected-item vice-card vice-card-${vice.type}`;
+    item.style.setProperty("--item-index", String(index));
 
     const text = document.createElement("span");
-    text.className = "selected-item-text";
-    text.textContent = `${vice.name} - ${vice.effect}`;
+    text.className = "selected-item-text vice-card-content";
+
+    const name = document.createElement("span");
+    name.className = "vice-card-name";
+    name.textContent = vice.name;
+
+    const effect = document.createElement("span");
+    effect.className = `detail-badge ${vice.type}`;
+    effect.textContent = vice.effect;
+    text.append(name, effect);
 
     const remove = document.createElement("button");
     remove.type = "button";
@@ -919,21 +1162,61 @@ function renderSelectedProcedureVices() {
     remove.setAttribute("aria-label", `Retirer ${vice.name}`);
     remove.textContent = "×";
     remove.addEventListener("click", () => {
-      state.procedureVices = state.procedureVices.filter((id) => id !== vice.id);
-      renderSelectedProcedureVices();
-      renderProcedureVicesPicker();
-      applyProcedureVicesEffects();
+      removeCardWithAnimation(item, () => {
+        targetState.procedureVices = targetState.procedureVices.filter((id) => id !== vice.id);
+        delete targetState.procedureViceTargets[vice.id];
+        renderSelectedProcedureVices(context);
+        if (!refs.procedureVicesModal.hidden && procedureVicesContext === context) renderProcedureVicesPicker();
+        applyProcedureVicesEffects(context);
+      });
     });
 
     item.append(text, remove);
-    refs.selectedProcedureVices.append(item);
+
+    if (vice.type === "annulation") {
+      const targetField = document.createElement("label");
+      targetField.className = "vice-target-field";
+      targetField.textContent = "Fait dont la peine doit être annulée";
+
+      const targetSelect = document.createElement("select");
+      targetSelect.setAttribute("aria-label", `Fait annulé pour ${vice.name}`);
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = facts.length ? "Sélectionne un fait" : "Ajoute d’abord un fait";
+      targetSelect.append(placeholder);
+
+      facts.forEach((factName) => {
+        const option = document.createElement("option");
+        option.value = factName;
+        option.textContent = factName;
+        targetSelect.append(option);
+      });
+      targetSelect.value = targetState.procedureViceTargets[vice.id] || "";
+      targetSelect.disabled = !facts.length;
+      targetSelect.addEventListener("change", () => {
+        if (targetSelect.value) {
+          targetState.procedureViceTargets[vice.id] = targetSelect.value;
+        } else {
+          delete targetState.procedureViceTargets[vice.id];
+        }
+        applyProcedureVicesEffects(context);
+      });
+
+      targetField.append(targetSelect);
+      item.append(targetField);
+    }
+    container.append(item);
   });
 
-  if (!state.procedureVices.length) {
+  if (!targetState.procedureVices.length) {
     const empty = document.createElement("div");
     empty.className = "empty-selected";
-    empty.textContent = "Aucun vice sélectionné.";
-    refs.selectedProcedureVices.append(empty);
+    empty.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.8 8.1 7 10 4.2-1.9 7-5.4 7-10V6l-7-3Z"/><path d="M9 12h6"/></svg>
+      <span>Aucun vice sélectionné</span>
+      <small>Utilisez le bouton de sélection pour en ajouter.</small>
+    `;
+    container.append(empty);
   }
 }
 
@@ -953,69 +1236,125 @@ function renderProcedureVicesTable() {
 }
 
 function renderProcedureVicesPicker() {
+  const { targetState, facts } = getProcedureVicesConfig();
   const query = refs.procedureVicesPickerSearch.value;
   const rows = PROCEDURE_VICES.filter((vice) => procedureViceMatches(vice, query));
+  const selectedCount = targetState.procedureVices.length;
+  refs.procedureVicesPickerCount.textContent = `${selectedCount} vice${selectedCount > 1 ? "s" : ""} sélectionné${selectedCount > 1 ? "s" : ""}`;
 
   refs.procedureVicesPickerList.innerHTML = "";
+  if (!rows.length) {
+    refs.procedureVicesPickerList.innerHTML = '<div class="vices-empty-results">Aucun vice ne correspond à cette recherche.</div>';
+    return;
+  }
+
+  const groups = new Map();
   rows.forEach((vice) => {
-    const label = document.createElement("label");
-    label.className = "vice-option";
+    if (!groups.has(vice.category)) groups.set(vice.category, []);
+    groups.get(vice.category).push(vice);
+  });
 
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = isProcedureViceSelected(vice.id);
-    input.addEventListener("change", () => {
-      if (input.checked && !isProcedureViceSelected(vice.id)) {
-        state.procedureVices.push(vice.id);
-      } else if (!input.checked) {
-        state.procedureVices = state.procedureVices.filter((id) => id !== vice.id);
-      }
-      renderSelectedProcedureVices();
-      applyProcedureVicesEffects();
-    });
+  groups.forEach((vices, category) => {
+    const group = document.createElement("details");
+    group.className = "vice-category-group";
+    group.open = true;
 
-    const content = document.createElement("span");
-    content.className = "vice-option-content";
-    content.innerHTML = `
-      <b>${escapeHtml(vice.name)}</b>
-      <span>${escapeHtml(vice.category)} - ${escapeHtml(vice.effect)}</span>
-    `;
+    const summary = document.createElement("summary");
+    const categoryName = document.createElement("span");
+    categoryName.textContent = category;
+    const categoryCount = document.createElement("span");
+    categoryCount.className = "vice-category-count";
+    categoryCount.textContent = String(vices.length);
+    summary.append(categoryName, categoryCount);
 
-    label.append(input, content);
-    refs.procedureVicesPickerList.append(label);
+    const options = document.createElement("div");
+    options.className = "vice-category-options";
+
+    [...vices]
+      .sort((a, b) => Number(isProcedureViceSelected(b.id, targetState)) - Number(isProcedureViceSelected(a.id, targetState)))
+      .forEach((vice) => {
+        const label = document.createElement("label");
+        label.className = `vice-option${isProcedureViceSelected(vice.id, targetState) ? " selected" : ""}`;
+
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = isProcedureViceSelected(vice.id, targetState);
+        input.addEventListener("change", () => {
+          if (input.checked && !isProcedureViceSelected(vice.id, targetState)) {
+            targetState.procedureVices.push(vice.id);
+            if (vice.type === "annulation" && facts.length === 1) {
+              targetState.procedureViceTargets[vice.id] = facts[0];
+            }
+          } else if (!input.checked) {
+            targetState.procedureVices = targetState.procedureVices.filter((id) => id !== vice.id);
+            delete targetState.procedureViceTargets[vice.id];
+          }
+          label.classList.toggle("selected", input.checked);
+          renderSelectedProcedureVices(procedureVicesContext);
+          applyProcedureVicesEffects(procedureVicesContext);
+          const count = targetState.procedureVices.length;
+          refs.procedureVicesPickerCount.textContent = `${count} vice${count > 1 ? "s" : ""} sélectionné${count > 1 ? "s" : ""}`;
+        });
+
+        const content = document.createElement("span");
+        content.className = "vice-option-content";
+        content.innerHTML = `
+          <b>${escapeHtml(vice.name)}</b>
+          <span class="detail-badge ${vice.type}">${escapeHtml(vice.effect)}</span>
+        `;
+
+        label.append(input, content);
+        options.append(label);
+      });
+
+    group.append(summary, options);
+    refs.procedureVicesPickerList.append(group);
   });
 }
 
-function openProcedureVicesModal() {
+function openProcedureVicesModal(context = "doj") {
+  procedureVicesContext = context;
+  refs.procedureVicesModalTitle.textContent = `Vices — ${getProcedureVicesConfig(context).label}`;
+  refs.procedureVicesPickerSearch.value = "";
   renderProcedureVicesPicker();
-  refs.procedureVicesModal.hidden = false;
-  window.setTimeout(() => refs.procedureVicesPickerSearch.focus(), 0);
+  openAccessibleModal(refs.procedureVicesModal, refs.procedureVicesPickerSearch);
 }
 
 function closeProcedureVicesModal() {
-  refs.procedureVicesModal.hidden = true;
+  closeAccessibleModal(refs.procedureVicesModal);
 }
 
 
-function procedureVicesTextLines() {
-  return selectedProcedureViceObjects().map((vice) => `- ${vice.name} (${vice.effect})`);
+function procedureVicesTextLines(targetState = state) {
+  return selectedProcedureViceObjects(targetState).map((vice) => {
+    const target = vice.type === "annulation" ? targetState.procedureViceTargets[vice.id] : "";
+    return `- ${vice.name} (${vice.effect}${target ? ` — Fait concerné : ${target}` : ""})`;
+  });
 }
 
 function procedureVicesHtmlItems() {
-  return selectedProcedureViceObjects().map((vice) => `<li>${escapeHtml(vice.name)} (${escapeHtml(vice.effect)})</li>`);
+  return selectedProcedureViceObjects(state).map((vice) => {
+    const target = vice.type === "annulation" ? state.procedureViceTargets[vice.id] : "";
+    return `<li>${escapeHtml(vice.name)} (${escapeHtml(vice.effect)}${target ? ` — Fait concerné : ${escapeHtml(target)}` : ""})</li>`;
+  });
 }
 
-function buildViceSapdText() {
-  const selected = selectedProcedureViceObjects();
+function buildViceSapdText(context = "doj") {
+  const isPrelim = context === "prelim";
+  const targetState = isPrelim ? prelimState : state;
+  const selected = selectedProcedureViceObjects(targetState);
   const vicesText = selected.length
-    ? selected.map((vice) => `- ${vice.name} (${vice.effect})`).join("\n")
+    ? procedureVicesTextLines(targetState).join("\n")
     : "- Aucun vice sélectionné";
+  const judge = isPrelim ? refs.prelimJudge.value : refs.judge.value;
+  const linkMed = isPrelim ? refs.prelimLinkMed.value : refs.linkMed.value;
+  const name = isPrelim ? refs.prelimName.value : refs.name.value;
 
   return [
     "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
-    `👮‍♂️ Agents : ${refs.judge.value}`,
-    `📝 Lien de la MED : ${refs.linkMed.value}`,
-    `👤 Par : ${refs.name.value}`,
+    `👮‍♂️ Agents : ${judge}`,
+    `📝 Lien de la MED : ${linkMed}`,
+    `👤 Par : ${name}`,
     "",
     ":closed_book: Vice de procédure :",
     vicesText,
@@ -1030,30 +1369,33 @@ function buildViceSapdText() {
 }
 
 function updateTotals() {
-  const reduction = clampReduction(refs.reduction.value);
-  refs.reduction.value = String(reduction);
+  const reduction = selectedProcedureReduction(state);
+  refs.viceReduction.value = `${reduction} %`;
 
-  let minutes = state.facts.reduce((sum, name) => sum + (factByName.get(name)?.temps ?? 0), 0);
-  minutes = Math.round(minutes * (1 - reduction / 100));
-  state.prisonMinutes = minutes;
+  const sanctions = calculateSanctions(
+    state.facts.map((name) => factByName.get(name)).filter(Boolean),
+    {
+      reduction,
+      fineDouble: refs.fineDouble.checked,
+      annulledFacts: selectedAnnulledFacts(state, state.facts)
+    }
+  );
+  state.prisonMinutes = sanctions.minutes;
 
   refs.comparutionTigToggle.classList.toggle("active", state.tigActive);
   refs.comparutionTigToggle.setAttribute("aria-pressed", String(state.tigActive));
+  refs.comparutionTigValueField.hidden = !state.tigActive;
+  refs.comparutionTigHint.hidden = true;
+  refs.comparutionTigValue.value = String(state.tigValue);
+  refs.timeTotal.readOnly = true;
 
   if (state.tigActive) {
-    refs.timeTotal.readOnly = false;
-    refs.timeTotal.inputMode = "numeric";
-    refs.timeTotal.value = String(state.tigValue);
+    refs.timeTotal.value = `${state.tigValue} T.I.G`;
   } else {
-    refs.timeTotal.readOnly = true;
-    refs.timeTotal.removeAttribute("inputmode");
     refs.timeTotal.value = formatTime(state.prisonMinutes);
   }
 
-  let fine = state.facts.reduce((sum, name) => sum + (factByName.get(name)?.amende ?? 0), 0);
-  if (refs.fineDouble.checked) fine *= 2;
-  fine = Math.round(fine * (1 - reduction / 100));
-  refs.fineTotal.value = formatMoney(fine);
+  refs.fineTotal.value = formatMoney(sanctions.fine);
   saveCaseToStorage();
 }
 
@@ -1093,7 +1435,19 @@ function setSuggestionContent(option, fact) {
   const label = document.createElement("span");
   label.className = "suggestion-label";
   appendFactDisplay(label, fact.nom);
-  option.append(label);
+
+  const meta = document.createElement("span");
+  meta.className = "suggestion-meta";
+  meta.textContent = `${fact.categorie} · ${fact.temps} min · ${formatMoney(fact.amende)}`;
+
+  option.append(label, meta);
+}
+
+function removeCardWithAnimation(item, callback) {
+  if (item.classList.contains("is-removing")) return;
+  item.classList.add("is-removing");
+  const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 190;
+  window.setTimeout(callback, delay);
 }
 
 function renderSelectedFacts() {
@@ -1101,12 +1455,13 @@ function renderSelectedFacts() {
 
   state.facts.forEach((factName, index) => {
     const item = document.createElement("div");
-    item.className = "selected-item";
+    item.className = `selected-item fact-card ${factSeverityClass(factByName.get(factName))}`;
+    item.style.setProperty("--item-index", String(index));
     item.addEventListener("click", (event) => event.stopPropagation());
 
     const text = document.createElement("span");
-    text.className = "selected-item-text";
-    appendFactDisplay(text, factName);
+    text.className = "selected-item-text fact-card-content";
+    appendFactCardContent(text, factName);
 
     const remove = document.createElement("button");
     remove.type = "button";
@@ -1115,9 +1470,13 @@ function renderSelectedFacts() {
     remove.textContent = "×";
     remove.addEventListener("click", (event) => {
       event.stopPropagation();
-      state.facts.splice(index, 1);
-      renderSelectedFacts();
-      updateTotals();
+      removeCardWithAnimation(item, () => {
+        state.facts.splice(index, 1);
+        pruneProcedureViceTargets();
+        renderSelectedFacts();
+        renderSelectedProcedureVices();
+        updateTotals();
+      });
     });
 
     item.append(text, remove);
@@ -1130,12 +1489,13 @@ function renderJudgementSelectedFacts() {
 
   judgementState.facts.forEach((factName, index) => {
     const item = document.createElement("div");
-    item.className = "selected-item";
+    item.className = `selected-item fact-card ${factSeverityClass(factByName.get(factName))}`;
+    item.style.setProperty("--item-index", String(index));
     item.addEventListener("click", (event) => event.stopPropagation());
 
     const text = document.createElement("span");
-    text.className = "selected-item-text";
-    appendFactDisplay(text, factName);
+    text.className = "selected-item-text fact-card-content";
+    appendFactCardContent(text, factName);
 
     const countField = document.createElement("label");
     countField.className = "selected-item-count";
@@ -1147,10 +1507,17 @@ function renderJudgementSelectedFacts() {
     const countInput = document.createElement("input");
     countInput.type = "number";
     countInput.min = "1";
+    countInput.step = "1";
     countInput.value = String(judgementState.factCounts.get(factName) ?? 1);
     countInput.setAttribute("aria-label", `Nombre pour ${factName}`);
     countInput.addEventListener("input", () => {
-      const count = Math.max(1, Math.floor(Number(countInput.value) || 1));
+      if (/^\d+$/.test(countInput.value) && Number(countInput.value) >= 1) {
+        judgementState.factCounts.set(factName, clampFactCount(countInput.value));
+      }
+      saveCaseToStorage();
+    });
+    countInput.addEventListener("change", () => {
+      const count = clampFactCount(countInput.value, judgementState.factCounts.get(factName) ?? 1);
       countInput.value = String(count);
       judgementState.factCounts.set(factName, count);
       saveCaseToStorage();
@@ -1165,10 +1532,12 @@ function renderJudgementSelectedFacts() {
     remove.textContent = "×";
     remove.addEventListener("click", (event) => {
       event.stopPropagation();
-      judgementState.facts.splice(index, 1);
-      judgementState.factCounts.delete(factName);
-      renderJudgementSelectedFacts();
-      updateJudgementTotals();
+      removeCardWithAnimation(item, () => {
+        judgementState.facts.splice(index, 1);
+        judgementState.factCounts.delete(factName);
+        renderJudgementSelectedFacts();
+        updateJudgementTotals();
+      });
     });
 
     item.append(text, countField, remove);
@@ -1181,12 +1550,13 @@ function renderPrelimSelectedFacts() {
 
   prelimState.facts.forEach((factName, index) => {
     const item = document.createElement("div");
-    item.className = "selected-item";
+    item.className = `selected-item fact-card ${factSeverityClass(factByName.get(factName))}`;
+    item.style.setProperty("--item-index", String(index));
     item.addEventListener("click", (event) => event.stopPropagation());
 
     const text = document.createElement("span");
-    text.className = "selected-item-text";
-    appendFactDisplay(text, factName);
+    text.className = "selected-item-text fact-card-content";
+    appendFactCardContent(text, factName);
 
     const remove = document.createElement("button");
     remove.type = "button";
@@ -1195,10 +1565,14 @@ function renderPrelimSelectedFacts() {
     remove.textContent = "×";
     remove.addEventListener("click", (event) => {
       event.stopPropagation();
-      prelimState.facts.splice(index, 1);
-      updatePrelimPrisonMinutes();
-      renderPrelimSelectedFacts();
-      updatePrelimTime();
+      removeCardWithAnimation(item, () => {
+        prelimState.facts.splice(index, 1);
+        pruneProcedureViceTargets(prelimState, prelimState.facts);
+        updatePrelimPrisonMinutes();
+        renderPrelimSelectedFacts();
+        renderSelectedProcedureVices("prelim");
+        updatePrelimTime();
+      });
     });
 
     item.append(text, remove);
@@ -1209,17 +1583,18 @@ function renderPrelimSelectedFacts() {
 function updatePrelimTime() {
   refs.tigToggle.classList.toggle("active", prelimState.tigActive);
   refs.tigToggle.setAttribute("aria-pressed", String(prelimState.tigActive));
+  refs.prelimTigValueField.hidden = !prelimState.tigActive;
+  refs.prelimTigHint.hidden = true;
+  refs.prelimTigValue.value = String(prelimState.tigValue);
+  refs.prelimTimeTotal.readOnly = true;
+  refs.prelimTimeCapNotice.hidden = prelimState.tigActive || prelimState.rawPrisonMinutes <= 60;
 
   if (prelimState.tigActive) {
-    refs.prelimTimeTotal.readOnly = false;
-    refs.prelimTimeTotal.inputMode = "numeric";
-    refs.prelimTimeTotal.value = String(prelimState.tigValue);
+    refs.prelimTimeTotal.value = `${prelimState.tigValue} T.I.G`;
     saveCaseToStorage();
     return;
   }
 
-  refs.prelimTimeTotal.readOnly = true;
-  refs.prelimTimeTotal.removeAttribute("inputmode");
   refs.prelimTimeTotal.value = formatTime(prelimState.prisonMinutes);
   saveCaseToStorage();
 }
@@ -1238,16 +1613,20 @@ function getJudgementSuggestions() {
 
 function renderSuggestions(forceOpen = false) {
   const suggestions = getSuggestions();
+  suggestionIndices.doj = Math.min(suggestionIndices.doj, Math.max(0, suggestions.length - 1));
   refs.factSuggestions.innerHTML = "";
 
   suggestions.forEach((fact, index) => {
     const option = document.createElement("button");
     option.type = "button";
-    option.className = `suggestion${index === 0 ? " active" : ""}`;
+    option.id = `fact-suggestion-${index}`;
+    option.className = `suggestion${index === suggestionIndices.doj ? " active" : ""}`;
     option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(index === suggestionIndices.doj));
     setSuggestionContent(option, fact);
     option.addEventListener("mousedown", (event) => event.preventDefault());
     option.addEventListener("click", () => {
+      suggestionIndices.doj = index;
       state.pendingFact = fact.nom;
       refs.factSearch.value = fact.nom;
       closeSuggestions();
@@ -1259,20 +1638,29 @@ function renderSuggestions(forceOpen = false) {
   const shouldOpen = forceOpen || document.activeElement === refs.factSearch;
   refs.factSuggestions.classList.toggle("open", shouldOpen && suggestions.length > 0);
   refs.factSearch.setAttribute("aria-expanded", String(shouldOpen && suggestions.length > 0));
+  if (shouldOpen && suggestions.length) {
+    refs.factSearch.setAttribute("aria-activedescendant", `fact-suggestion-${suggestionIndices.doj}`);
+  } else {
+    refs.factSearch.removeAttribute("aria-activedescendant");
+  }
 }
 
 function renderPrelimSuggestions(forceOpen = false) {
   const suggestions = getPrelimSuggestions();
+  suggestionIndices.prelim = Math.min(suggestionIndices.prelim, Math.max(0, suggestions.length - 1));
   refs.prelimFactSuggestions.innerHTML = "";
 
   suggestions.forEach((fact, index) => {
     const option = document.createElement("button");
     option.type = "button";
-    option.className = `suggestion${index === 0 ? " active" : ""}`;
+    option.id = `prelim-fact-suggestion-${index}`;
+    option.className = `suggestion${index === suggestionIndices.prelim ? " active" : ""}`;
     option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(index === suggestionIndices.prelim));
     setSuggestionContent(option, fact);
     option.addEventListener("mousedown", (event) => event.preventDefault());
     option.addEventListener("click", () => {
+      suggestionIndices.prelim = index;
       prelimState.pendingFact = fact.nom;
       refs.prelimFactSearch.value = fact.nom;
       closePrelimSuggestions();
@@ -1284,20 +1672,29 @@ function renderPrelimSuggestions(forceOpen = false) {
   const shouldOpen = forceOpen || document.activeElement === refs.prelimFactSearch;
   refs.prelimFactSuggestions.classList.toggle("open", shouldOpen && suggestions.length > 0);
   refs.prelimFactSearch.setAttribute("aria-expanded", String(shouldOpen && suggestions.length > 0));
+  if (shouldOpen && suggestions.length) {
+    refs.prelimFactSearch.setAttribute("aria-activedescendant", `prelim-fact-suggestion-${suggestionIndices.prelim}`);
+  } else {
+    refs.prelimFactSearch.removeAttribute("aria-activedescendant");
+  }
 }
 
 function renderJudgementSuggestions(forceOpen = false) {
   const suggestions = getJudgementSuggestions();
+  suggestionIndices.judgement = Math.min(suggestionIndices.judgement, Math.max(0, suggestions.length - 1));
   refs.judgementFactSuggestions.innerHTML = "";
 
   suggestions.forEach((fact, index) => {
     const option = document.createElement("button");
     option.type = "button";
-    option.className = `suggestion${index === 0 ? " active" : ""}`;
+    option.id = `judgement-fact-suggestion-${index}`;
+    option.className = `suggestion${index === suggestionIndices.judgement ? " active" : ""}`;
     option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(index === suggestionIndices.judgement));
     setSuggestionContent(option, fact);
     option.addEventListener("mousedown", (event) => event.preventDefault());
     option.addEventListener("click", () => {
+      suggestionIndices.judgement = index;
       judgementState.pendingFact = fact.nom;
       refs.judgementFactSearch.value = fact.nom;
       closeJudgementSuggestions();
@@ -1309,21 +1706,80 @@ function renderJudgementSuggestions(forceOpen = false) {
   const shouldOpen = forceOpen || document.activeElement === refs.judgementFactSearch;
   refs.judgementFactSuggestions.classList.toggle("open", shouldOpen && suggestions.length > 0);
   refs.judgementFactSearch.setAttribute("aria-expanded", String(shouldOpen && suggestions.length > 0));
+  if (shouldOpen && suggestions.length) {
+    refs.judgementFactSearch.setAttribute("aria-activedescendant", `judgement-fact-suggestion-${suggestionIndices.judgement}`);
+  } else {
+    refs.judgementFactSearch.removeAttribute("aria-activedescendant");
+  }
 }
 
 function closeSuggestions() {
   refs.factSuggestions.classList.remove("open");
   refs.factSearch.setAttribute("aria-expanded", "false");
+  refs.factSearch.removeAttribute("aria-activedescendant");
 }
 
 function closeJudgementSuggestions() {
   refs.judgementFactSuggestions.classList.remove("open");
   refs.judgementFactSearch.setAttribute("aria-expanded", "false");
+  refs.judgementFactSearch.removeAttribute("aria-activedescendant");
 }
 
 function closePrelimSuggestions() {
   refs.prelimFactSuggestions.classList.remove("open");
   refs.prelimFactSearch.setAttribute("aria-expanded", "false");
+  refs.prelimFactSearch.removeAttribute("aria-activedescendant");
+}
+
+function suggestionConfig(type) {
+  const configs = {
+    doj: {
+      input: refs.factSearch,
+      getItems: getSuggestions,
+      render: renderSuggestions,
+      setPending: (fact) => { state.pendingFact = fact; },
+      add: addFact,
+      optionPrefix: "fact-suggestion-"
+    },
+    prelim: {
+      input: refs.prelimFactSearch,
+      getItems: getPrelimSuggestions,
+      render: renderPrelimSuggestions,
+      setPending: (fact) => { prelimState.pendingFact = fact; },
+      add: addPrelimFact,
+      optionPrefix: "prelim-fact-suggestion-"
+    },
+    judgement: {
+      input: refs.judgementFactSearch,
+      getItems: getJudgementSuggestions,
+      render: renderJudgementSuggestions,
+      setPending: (fact) => { judgementState.pendingFact = fact; },
+      add: addJudgementFact,
+      optionPrefix: "judgement-fact-suggestion-"
+    }
+  };
+  return configs[type];
+}
+
+function moveSuggestionSelection(type, direction) {
+  const config = suggestionConfig(type);
+  const items = config.getItems();
+  if (!items.length) return;
+  suggestionIndices[type] = (suggestionIndices[type] + direction + items.length) % items.length;
+  config.render(true);
+  document.getElementById(`${config.optionPrefix}${suggestionIndices[type]}`)?.scrollIntoView({ block: "nearest" });
+}
+
+function addActiveSuggestion(type) {
+  const config = suggestionConfig(type);
+  if (!config.input.value.trim()) {
+    config.add();
+    return;
+  }
+  const items = config.getItems();
+  const selected = items[suggestionIndices[type]];
+  if (selected) config.setPending(selected.nom);
+  config.add();
 }
 
 function resolveFactFromInput() {
@@ -1365,10 +1821,19 @@ function addFact() {
   }
 
   state.facts.push(factName);
+  if (state.facts.length === 1) {
+    selectedProcedureViceObjects().forEach((vice) => {
+      if (vice.type === "annulation" && !state.procedureViceTargets[vice.id]) {
+        state.procedureViceTargets[vice.id] = factName;
+      }
+    });
+  }
   state.pendingFact = "";
+  suggestionIndices.doj = 0;
   refs.factSearch.value = "";
   closeSuggestions();
   renderSelectedFacts();
+  renderSelectedProcedureVices();
   updateTotals();
 }
 
@@ -1392,6 +1857,7 @@ function addJudgementFact() {
   judgementState.facts.push(factName);
   judgementState.factCounts.set(factName, 1);
   judgementState.pendingFact = "";
+  suggestionIndices.judgement = 0;
   refs.judgementFactSearch.value = "";
   closeJudgementSuggestions();
   renderJudgementSelectedFacts();
@@ -1416,11 +1882,20 @@ function addPrelimFact() {
   }
 
   prelimState.facts.push(factName);
+  if (prelimState.facts.length === 1) {
+    selectedProcedureViceObjects(prelimState).forEach((vice) => {
+      if (vice.type === "annulation" && !prelimState.procedureViceTargets[vice.id]) {
+        prelimState.procedureViceTargets[vice.id] = factName;
+      }
+    });
+  }
   prelimState.pendingFact = "";
+  suggestionIndices.prelim = 0;
   refs.prelimFactSearch.value = "";
   closePrelimSuggestions();
   updatePrelimPrisonMinutes();
   renderPrelimSelectedFacts();
+  renderSelectedProcedureVices("prelim");
   updatePrelimTime();
 }
 
@@ -1508,7 +1983,7 @@ function buildSapdText() {
 
 function buildPrelimSapdText() {
   const timeText = prelimState.tigActive
-    ? `${syncTigValueFromTimeField()} T.I.G`
+    ? `${commitPrelimTigValue()} T.I.G`
     : refs.prelimTimeTotal.value;
 
   return [
@@ -1529,7 +2004,7 @@ function buildPrelimSapdText() {
 function buildJudgementSapdText() {
   return [
     "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
-    "# jugement",
+    "# Jugement",
     `👨‍⚖️ Juge / Procureur : ${refs.judgementJudge.value}`,
     `🗓️ Date de délibération : ${getDateShort()}`,
     `⚖️ Décision : ${currentJudgementDecision()}`,
@@ -1537,7 +2012,7 @@ function buildJudgementSapdText() {
     `💰 Amende : ${refs.judgementFineTotal.value}`,
     formatFactsForCopy(judgementState.facts, judgementState.factCounts),
     `👤 Identité : ${refs.judgementName.value}`,
-    `📝 Lien de la dossier de jugement : ${refs.judgementLinkMed.value}`,
+    `📝 Lien du dossier de jugement : ${refs.judgementLinkMed.value}`,
     "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
   ].join("\n");
 }
@@ -1618,7 +2093,7 @@ function buildOpeningText() {
     `Peine de prison : ${timeText}`,
     "Biens restitués : liste",
     "Biens saisis non restitués : liste",
-    vices ? `\n⚠️Vices de procédures :⚠️\n${vices}` : "",
+    vices ? `\n⚠️Vices de procédure :⚠️\n${vices}` : "",
     "",
     "Clôture",
     `Il est ${getHourText()}, je déclare la comparution terminée.`,
@@ -1742,7 +2217,7 @@ function renderOpeningModal() {
           <span>Biens saisis non restitués</span>
           <b>liste</b>
         </div>
-        ${vices ? `<div class="script-warning"><b>⚠️Vices de procédures :⚠️</b><ul>${vices}</ul></div>` : ""}
+        ${vices ? `<div class="script-warning"><b>⚠️Vices de procédure :⚠️</b><ul>${vices}</ul></div>` : ""}
       </section>
 
       <section class="opening-section">
@@ -1765,7 +2240,7 @@ function renderPrelimOpeningModal() {
   const date = escapeHtml(getDateLong());
   const shortDate = escapeHtml(getDateShort());
   const hour = escapeHtml(getHourText());
-  const timeText = escapeHtml(prelimState.tigActive ? `${syncTigValueFromTimeField()} T.I.G` : refs.prelimTimeTotal.value);
+  const timeText = escapeHtml(prelimState.tigActive ? `${commitPrelimTigValue()} T.I.G` : refs.prelimTimeTotal.value);
   const civilParty = escapeHtml(CIVIL_PARTY_LABEL);
   const facts = formatFactsForOpening(prelimState.facts);
   const procedureQuestion = hasPrelimLawyer()
@@ -1850,33 +2325,81 @@ function renderPrelimOpeningModal() {
   `;
 }
 
+let modalReturnFocus = null;
+
+function setPageInert(inert) {
+  [document.querySelector(".topbar"), document.querySelector("main"), document.querySelector(".footer")]
+    .filter(Boolean)
+    .forEach((element) => { element.inert = inert; });
+}
+
+function openAccessibleModal(modal, initialFocus = null) {
+  modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  setPageInert(true);
+  modal.hidden = false;
+  window.setTimeout(() => {
+    const focusTarget = initialFocus || modal.querySelector("button, input, textarea, select, [tabindex]:not([tabindex='-1'])");
+    focusTarget?.focus();
+  }, 0);
+}
+
+function closeAccessibleModal(modal) {
+  if (modal.hidden) return;
+  modal.hidden = true;
+  setPageInert(false);
+  const returnFocus = modalReturnFocus;
+  modalReturnFocus = null;
+  window.setTimeout(() => returnFocus?.focus(), 0);
+}
+
+function activeModal() {
+  return [refs.resetConfirmModal, refs.procedureVicesModal, refs.copyFallbackModal, refs.modal]
+    .find((modal) => !modal.hidden) ?? null;
+}
+
+function trapModalFocus(event, modal) {
+  if (event.key !== "Tab") return;
+  const focusable = Array.from(modal.querySelectorAll(
+    "button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex='-1'])"
+  )).filter((element) => !element.hidden && element.getClientRects().length);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function openModal() {
   refs.modalTitle.textContent = "Ouverture de comparution";
   renderOpeningModal();
-  refs.modal.hidden = false;
+  openAccessibleModal(refs.modal);
 }
 
 function openPrelimModal() {
   refs.modalTitle.textContent = "Ouverture audience préliminaire";
   renderPrelimOpeningModal();
-  refs.modal.hidden = false;
+  openAccessibleModal(refs.modal);
 }
 
 function closeModal() {
-  refs.modal.hidden = true;
+  closeAccessibleModal(refs.modal);
 }
 
 function openManualCopyModal(text) {
   refs.manualCopyText.value = text;
-  refs.copyFallbackModal.hidden = false;
+  openAccessibleModal(refs.copyFallbackModal, refs.manualCopyText);
   window.setTimeout(() => {
-    refs.manualCopyText.focus();
     refs.manualCopyText.select();
   }, 0);
 }
 
 function closeManualCopyModal() {
-  refs.copyFallbackModal.hidden = true;
+  closeAccessibleModal(refs.copyFallbackModal);
 }
 
 function fallbackCopyText(text) {
@@ -1892,7 +2415,27 @@ function fallbackCopyText(text) {
   return copied;
 }
 
+function animateCopyConfirmation(button) {
+  if (!(button instanceof HTMLButtonElement) || !button.classList.contains("copy-feedback")) return;
+  button.querySelector(".copy-confirmation")?.remove();
+  button.classList.add("copy-confirmed");
+
+  const confirmation = document.createElement("span");
+  confirmation.className = "copy-confirmation";
+  confirmation.innerHTML = `
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+    <span>Copié</span>
+  `;
+  button.append(confirmation);
+
+  window.setTimeout(() => {
+    button.classList.remove("copy-confirmed");
+    confirmation.remove();
+  }, 1600);
+}
+
 async function copyText(text, successMessage) {
+  const triggerButton = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
   let copied = fallbackCopyText(text);
 
   if (!copied && navigator.clipboard && window.isSecureContext) {
@@ -1905,19 +2448,26 @@ async function copyText(text, successMessage) {
   }
 
   if (copied) {
+    animateCopyConfirmation(triggerButton);
     showToast(successMessage);
   } else {
     openManualCopyModal(text);
-    showToast("Copie automatique bloquée, texte affiché.");
+    showToast("Copie automatique bloquée, texte affiché.", "warning");
   }
 }
 
 let toastTimer = 0;
-function showToast(message) {
+function showToast(message, requestedType = "") {
+  const warningPattern = /manquant|aucun|sélectionne|limite|déjà|bloqu|incorrect|invalide|ouvre une|doit être/i;
+  const type = requestedType || (warningPattern.test(message) ? "warning" : "success");
   window.clearTimeout(toastTimer);
-  refs.toast.textContent = message;
+  refs.toast.dataset.type = type;
+  refs.toastTitle.textContent = type === "warning" ? "À vérifier" : "Action terminée";
+  refs.toastMessage.textContent = message;
+  refs.toast.classList.remove("show");
+  void refs.toast.offsetWidth;
   refs.toast.classList.add("show");
-  toastTimer = window.setTimeout(() => refs.toast.classList.remove("show"), 2200);
+  toastTimer = window.setTimeout(() => refs.toast.classList.remove("show"), 3200);
 }
 
 function renderCodeTable() {
@@ -1953,30 +2503,74 @@ function matchesInfoSearch(fact, query) {
   return infoText.includes(normalizedQuery) || Number.isFinite(scoreFactSearch(fact, query));
 }
 
+let viewTransitionTimer = 0;
+
 function switchView(target) {
   const nextView = $(`#${target}View`);
   if (!nextView) return;
-  $$(".view").forEach((view) => view.classList.remove("active"));
-  nextView.classList.add("active");
-  $$(".nav-link").forEach((button) => {
-    button.classList.toggle("active", button.dataset.viewTarget === target);
+  const viewOrder = ["doj", "prelim", "judgement", "infos", "procedureVices"];
+  const currentView = $(".view.active");
+  if (currentView === nextView) return;
+  const currentName = currentView?.id.replace(/View$/, "") || target;
+  const directionClass = viewOrder.indexOf(target) >= viewOrder.indexOf(currentName)
+    ? "view-enter-right"
+    : "view-enter-left";
+
+  $$(".view").forEach((view) => {
+    view.classList.remove("active", "view-enter-right", "view-enter-left");
   });
+  nextView.classList.add("active", directionClass);
+  window.clearTimeout(viewTransitionTimer);
+  viewTransitionTimer = window.setTimeout(() => {
+    nextView.classList.remove("view-enter-right", "view-enter-left");
+  }, 300);
+  $$(".nav-link").forEach((button) => {
+    const active = button.dataset.viewTarget === target;
+    button.classList.toggle("active", active);
+    if (active) {
+      button.setAttribute("aria-current", "page");
+    } else {
+      button.removeAttribute("aria-current");
+    }
+  });
+  const resettable = ["doj", "prelim", "judgement"].includes(target);
+  refs.resetCase.disabled = !resettable;
+  refs.resetCase.title = resettable
+    ? "Réinitialiser uniquement ce dossier"
+    : "Ouvre un dossier pour pouvoir le réinitialiser";
   saveCaseToStorage();
 }
 
-refs.resetCase.addEventListener("click", resetCurrentCase);
+function handleSuggestionKeydown(event, type, close) {
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    moveSuggestionSelection(type, event.key === "ArrowDown" ? 1 : -1);
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addActiveSuggestion(type);
+    return;
+  }
+  if (event.key === "Escape") close();
+}
+
+refs.resetCase.addEventListener("click", requestCurrentCaseReset);
 
 refs.factSearch.addEventListener("input", () => {
+  suggestionIndices.doj = 0;
   state.pendingFact = factByName.has(refs.factSearch.value.trim()) ? refs.factSearch.value.trim() : "";
   renderSuggestions(true);
 });
 
 refs.prelimFactSearch.addEventListener("input", () => {
+  suggestionIndices.prelim = 0;
   prelimState.pendingFact = factByName.has(refs.prelimFactSearch.value.trim()) ? refs.prelimFactSearch.value.trim() : "";
   renderPrelimSuggestions(true);
 });
 
 refs.judgementFactSearch.addEventListener("input", () => {
+  suggestionIndices.judgement = 0;
   judgementState.pendingFact = factByName.has(refs.judgementFactSearch.value.trim()) ? refs.judgementFactSearch.value.trim() : "";
   renderJudgementSuggestions(true);
 });
@@ -1985,33 +2579,21 @@ refs.judgementFactSearch.addEventListener("focus", () => renderJudgementSuggesti
 refs.judgementFactSearch.addEventListener("blur", () => window.setTimeout(closeJudgementSuggestions, 120));
 
 refs.judgementFactSearch.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    addJudgementFact();
-  }
-  if (event.key === "Escape") closeJudgementSuggestions();
+  handleSuggestionKeydown(event, "judgement", closeJudgementSuggestions);
 });
 
 refs.prelimFactSearch.addEventListener("focus", () => renderPrelimSuggestions(true));
 refs.prelimFactSearch.addEventListener("blur", () => window.setTimeout(closePrelimSuggestions, 120));
 
 refs.prelimFactSearch.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    addPrelimFact();
-  }
-  if (event.key === "Escape") closePrelimSuggestions();
+  handleSuggestionKeydown(event, "prelim", closePrelimSuggestions);
 });
 
 refs.factSearch.addEventListener("focus", () => renderSuggestions(true));
 refs.factSearch.addEventListener("blur", () => window.setTimeout(closeSuggestions, 120));
 
 refs.factSearch.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    addFact();
-  }
-  if (event.key === "Escape") closeSuggestions();
+  handleSuggestionKeydown(event, "doj", closeSuggestions);
 });
 
 refs.comboToggle.addEventListener("click", () => {
@@ -2031,22 +2613,34 @@ refs.judgementComboToggle.addEventListener("click", () => {
 
 refs.prelimAddFact.addEventListener("click", addPrelimFact);
 refs.tigToggle.addEventListener("click", () => {
-  if (prelimState.tigActive) syncTigValueFromTimeField();
+  if (prelimState.tigActive) commitPrelimTigValue();
   prelimState.tigActive = !prelimState.tigActive;
   updatePrelimTime();
+  if (prelimState.tigActive) refs.prelimTigValue.focus();
 });
 refs.prelimLawyerToggle.addEventListener("click", () => {
   prelimState.lawyerActive = !prelimState.lawyerActive;
   updatePrelimLawyerControl();
   if (prelimState.lawyerActive) refs.prelimLawyerName.focus();
 });
-refs.prelimTimeTotal.addEventListener("input", () => {
-  if (!prelimState.tigActive) return;
-  syncTigValueFromTimeField();
+refs.prelimTigValue.addEventListener("input", () => {
+  updateTigDraft(refs.prelimTigValue, prelimState, refs.prelimTigHint, refs.prelimTimeTotal);
+});
+refs.prelimTigValue.addEventListener("change", () => {
+  commitPrelimTigValue();
+  updatePrelimTime();
 });
 refs.copyPrelimSapd.addEventListener("click", () => {
   if (!validateCaseBeforeCopy("prelim")) return;
   copyText(buildPrelimSapdText(), "Audience préliminaire copiée dans le presse-papier");
+});
+refs.openPrelimVicesPicker.addEventListener("click", () => openProcedureVicesModal("prelim"));
+refs.copyPrelimVicesContest.addEventListener("click", () => {
+  if (hasUnassignedAnnulationVice("prelim")) {
+    showToast("Sélectionne le fait concerné par chaque annulation");
+    return;
+  }
+  copyText(buildViceSapdText("prelim"), "Texte des vices copié");
 });
 refs.openPrelimHearing.addEventListener("click", openPrelimModal);
 
@@ -2058,30 +2652,41 @@ refs.copyJudgementSapd.addEventListener("click", () => {
 
 refs.addFact.addEventListener("click", addFact);
 refs.comparutionTigToggle.addEventListener("click", () => {
-  if (state.tigActive) syncComparutionTigValueFromTimeField();
+  if (state.tigActive) commitComparutionTigValue();
   state.tigActive = !state.tigActive;
   updateTotals();
+  if (state.tigActive) refs.comparutionTigValue.focus();
 });
 refs.lawyerToggle.addEventListener("click", () => {
   state.lawyerActive = !state.lawyerActive;
   updateLawyerControl();
   if (state.lawyerActive) refs.lawyerName.focus();
 });
-refs.timeTotal.addEventListener("input", () => {
-  if (!state.tigActive) return;
-  syncComparutionTigValueFromTimeField();
+refs.comparutionTigValue.addEventListener("input", () => {
+  updateTigDraft(refs.comparutionTigValue, state, refs.comparutionTigHint, refs.timeTotal);
+});
+refs.comparutionTigValue.addEventListener("change", () => {
+  commitComparutionTigValue();
+  updateTotals();
 });
 refs.fineDouble.addEventListener("change", updateTotals);
-refs.reduction.addEventListener("input", updateTotals);
-refs.openVicesPicker.addEventListener("click", openProcedureVicesModal);
+refs.openVicesPicker.addEventListener("click", () => openProcedureVicesModal("doj"));
 refs.openHearing.addEventListener("click", openModal);
 refs.copySapd.addEventListener("click", () => {
+  if (!validateCaseBeforeCopy("doj")) return;
   copyText(buildSapdText(), "Texte copié dans le presse-papier");
 });
 refs.infoSearch.addEventListener("input", renderCodeTable);
-refs.copyVicesContest.addEventListener("click", () => copyText(buildViceSapdText(), "Vice SAPD copié"));
+refs.copyVicesContest.addEventListener("click", () => {
+  if (hasUnassignedAnnulationVice("doj")) {
+    showToast("Sélectionne le fait concerné par chaque annulation");
+    return;
+  }
+  copyText(buildViceSapdText("doj"), "Texte des vices copié");
+});
 refs.procedureVicesSearch.addEventListener("input", renderProcedureVicesTable);
 refs.procedureVicesPickerSearch.addEventListener("input", renderProcedureVicesPicker);
+refs.finishProcedureVices.addEventListener("click", closeProcedureVicesModal);
 refs.paletteToggle.addEventListener("click", (event) => {
   event.stopPropagation();
   toggleColorPalette();
@@ -2094,6 +2699,9 @@ refs.colorPalette.addEventListener("click", (event) => event.stopPropagation());
   form.addEventListener("change", saveCaseToStorage);
 });
 
+document.addEventListener("input", (event) => updateFieldVisualState(event.target));
+document.addEventListener("change", (event) => updateFieldVisualState(event.target));
+
 $$("[data-view-target]").forEach((button) => {
   button.addEventListener("click", () => switchView(button.dataset.viewTarget));
 });
@@ -2101,11 +2709,22 @@ $$("[data-view-target]").forEach((button) => {
 $$("[data-close-modal]").forEach((element) => element.addEventListener("click", closeModal));
 $$("[data-close-copy-modal]").forEach((element) => element.addEventListener("click", closeManualCopyModal));
 $$("[data-close-procedure-vices-modal]").forEach((element) => element.addEventListener("click", closeProcedureVicesModal));
+$$('[data-close-reset-modal]').forEach((element) => element.addEventListener("click", closeResetConfirmModal));
+refs.cancelReset.addEventListener("click", closeResetConfirmModal);
+refs.confirmReset.addEventListener("click", performCurrentCaseReset);
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !refs.modal.hidden) closeModal();
-  if (event.key === "Escape" && !refs.copyFallbackModal.hidden) closeManualCopyModal();
-  if (event.key === "Escape" && !refs.procedureVicesModal.hidden) closeProcedureVicesModal();
+  const modal = activeModal();
+  if (modal) {
+    trapModalFocus(event, modal);
+    if (event.key === "Escape") {
+      if (modal === refs.resetConfirmModal) closeResetConfirmModal();
+      if (modal === refs.modal) closeModal();
+      if (modal === refs.copyFallbackModal) closeManualCopyModal();
+      if (modal === refs.procedureVicesModal) closeProcedureVicesModal();
+    }
+    return;
+  }
   if (event.key === "Escape" && !refs.colorPalette.hidden) closeColorPalette();
 });
 
@@ -2120,7 +2739,8 @@ if (!loadSavedCase()) {
   renderPrelimSelectedFacts();
   renderJudgementSelectedFacts();
   renderSelectedFacts();
-  renderSelectedProcedureVices();
+  renderSelectedProcedureVices("doj");
+  renderSelectedProcedureVices("prelim");
   updateComparutionDecisionLock();
   updateLawyerControl();
   updatePrelimLawyerControl();
@@ -2128,3 +2748,4 @@ if (!loadSavedCase()) {
   updateJudgementTotals();
   updateTotals();
 }
+refreshFieldVisualStates();

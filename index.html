@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>DOJ - Copie locale</title>
+    <title>DOJ — Gestion des procédures</title>
+    <link rel="icon" href="assets/lspd_logo.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -11,11 +12,26 @@
       <nav class="nav" aria-label="Navigation principale">
         <img class="brand-logo" src="assets/lspd_logo.svg" alt="DOJ Logo">
         <div class="nav-center">
-          <button class="nav-link active" type="button" data-view-target="doj">Comparution</button>
-          <button class="nav-link" type="button" data-view-target="prelim">Audience préliminaire</button>
-          <button class="nav-link" type="button" data-view-target="judgement">Jugement</button>
-          <button class="nav-link" type="button" data-view-target="infos">Infos</button>
-          <button class="nav-link" type="button" data-view-target="procedureVices">Vices de procédure</button>
+          <button class="nav-link active" type="button" data-view-target="doj" aria-current="page">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M5 6h14M7 6 3.5 13h7L7 6Zm10 0-3.5 7h7L17 6ZM8 21h8"/></svg>
+            <span>Comparution</span>
+          </button>
+          <button class="nav-link" type="button" data-view-target="prelim">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>
+            <span>Audience préliminaire</span>
+          </button>
+          <button class="nav-link" type="button" data-view-target="judgement">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M12.5 6.5l5 5M4 20l8.5-8.5M10 4l4 4-7 7-4-4 7-7Zm5 14h6v3h-8"/></svg>
+            <span>Jugement</span>
+          </button>
+          <button class="nav-link" type="button" data-view-target="infos">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>
+            <span>Infos</span>
+          </button>
+          <button class="nav-link" type="button" data-view-target="procedureVices">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.8 8.1 7 10 4.2-1.9 7-5.4 7-10V6l-7-3Z"/><path d="M12 8v5M12 16h.01"/></svg>
+            <span>Vices de procédure</span>
+          </button>
         </div>
         <div class="nav-actions">
           <button id="resetCase" class="toolbar-button danger" type="button">Réinitialiser</button>
@@ -77,12 +93,22 @@
                 <div class="separator"></div>
 
                 <div class="combo" id="prelimFactCombo">
-                  <input id="prelimFactSearch" type="text" placeholder="Selectionne un fait" aria-label="Selectionne un fait" role="combobox" aria-expanded="false" aria-controls="prelimFactSuggestions">
+                  <svg class="combo-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+                  <input id="prelimFactSearch" type="text" placeholder="Sélectionne un fait" aria-label="Sélectionne un fait" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="prelimFactSuggestions">
                   <button id="prelimComboToggle" class="combo-toggle" type="button" aria-label="Ouvrir la liste">⌄</button>
                   <div id="prelimFactSuggestions" class="suggestions" role="listbox"></div>
                 </div>
 
                 <button id="prelimAddFact" class="primary-button" type="button">Ajouter</button>
+
+                <div class="separator spacious"></div>
+
+                <button id="openPrelimHearing" class="secondary-button hearing-button" type="button">
+                  <span class="button-content">
+                    <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>
+                    <span>Ouvrir l’audience</span>
+                  </span>
+                </button>
               </section>
 
               <div class="divider" aria-hidden="true"></div>
@@ -90,7 +116,7 @@
               <aside class="totals-panel prelim-totals" aria-label="Temps et TIG">
                 <label class="inline-field">
                   <span>Temps :</span>
-                  <input id="prelimTimeTotal" type="text" value="0h00">
+                  <input id="prelimTimeTotal" type="text" value="0h00" readonly>
                 </label>
 
                 <div class="tig-control">
@@ -98,15 +124,60 @@
                     <span class="switch-slider" aria-hidden="true"></span>
                     <span>T.I.G</span>
                   </button>
+                  <label id="prelimTigValueField" class="tig-value-field" hidden>
+                    <span>Nombre de TIG</span>
+                    <input id="prelimTigValue" class="tig-input" type="text" inputmode="numeric" pattern="[0-9]*" value="1" aria-describedby="prelimTigHint">
+                  </label>
+                  <small id="prelimTigHint" class="field-hint" hidden>Nombre entier compris entre 1 et 300.</small>
                 </div>
+
+                <label class="inline-field reduction-summary">
+                  <span>Réduction cumulée des vices :</span>
+                  <input id="prelimViceReduction" type="text" value="0 %" readonly>
+                </label>
+                <small id="prelimTimeCapNotice" class="field-notice" role="status" hidden>Le temps calculé est plafonné à 60 minutes.</small>
               </aside>
             </div>
           </form>
         </section>
 
-        <section class="panel action-panel prelim-action-panel">
-          <button id="copyPrelimSapd" class="primary-button big-action prelim-big-action" type="button">Audience préliminaire SAPD</button>
-          <button id="openPrelimHearing" class="secondary-button big-action prelim-big-action" type="button">Ouvrir audience préliminaire</button>
+        <section class="panel action-panel prelim-action-panel" aria-label="Actions de l’audience préliminaire">
+          <div class="action-zone action-zone-primary">
+            <span class="action-zone-kicker">Document principal</span>
+            <button id="copyPrelimSapd" class="primary-button dock-action copy-feedback" type="button">
+              <span class="button-content">
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7V3Z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg>
+                <span>Audience préliminaire SAPD</span>
+              </span>
+            </button>
+          </div>
+
+          <div class="action-zone action-zone-vices vices-workspace">
+            <div class="vices-workspace-header">
+              <span class="vices-title-group">
+                <svg class="zone-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.8 8.1 7 10 4.2-1.9 7-5.4 7-10V6l-7-3Z"/><path d="M12 8v5M12 16h.01"/></svg>
+                <span>Vices de procédure</span>
+              </span>
+              <span id="prelimVicesCounter" class="vices-counter">0</span>
+            </div>
+            <div id="prelimSelectedProcedureVices" class="selected-list compact-list" aria-live="polite"></div>
+          </div>
+
+          <div class="action-zone action-zone-controls">
+            <span class="action-zone-kicker">Actions sur les vices</span>
+            <button id="openPrelimVicesPicker" class="secondary-button dock-action" type="button">
+              <span class="button-content">
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h7M15 17h5"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="13" cy="17" r="2"/></svg>
+                <span>Sélectionner les vices</span>
+              </span>
+            </button>
+            <button id="copyPrelimVicesContest" class="primary-button dock-action copy-feedback" type="button">
+              <span class="button-content">
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/></svg>
+                <span>Copier le texte des vices</span>
+              </span>
+            </button>
+          </div>
         </section>
       </section>
 
@@ -163,7 +234,8 @@
                 <div class="separator"></div>
 
                 <div class="combo" id="factCombo">
-                  <input id="factSearch" type="text" placeholder="Selectionne un fait" aria-label="Selectionne un fait" role="combobox" aria-expanded="false" aria-controls="factSuggestions">
+                  <svg class="combo-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+                  <input id="factSearch" type="text" placeholder="Sélectionne un fait" aria-label="Sélectionne un fait" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="factSuggestions">
                   <button id="comboToggle" class="combo-toggle" type="button" aria-label="Ouvrir la liste">⌄</button>
                   <div id="factSuggestions" class="suggestions" role="listbox"></div>
                 </div>
@@ -172,7 +244,12 @@
 
                 <div class="separator spacious"></div>
 
-                <button id="openHearing" class="secondary-button" type="button">Ouverture de comparution</button>
+                <button id="openHearing" class="secondary-button hearing-button" type="button">
+                  <span class="button-content">
+                    <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>
+                    <span>Ouvrir la comparution</span>
+                  </span>
+                </button>
               </section>
 
               <div class="divider" aria-hidden="true"></div>
@@ -180,7 +257,7 @@
               <aside class="totals-panel" aria-label="Totaux">
                 <label class="inline-field">
                   <span>Temps :</span>
-                  <input id="timeTotal" type="text" value="0h00">
+                  <input id="timeTotal" type="text" value="0h00" readonly>
                 </label>
 
                 <div class="tig-control">
@@ -188,6 +265,11 @@
                     <span class="switch-slider" aria-hidden="true"></span>
                     <span>T.I.G</span>
                   </button>
+                  <label id="comparutionTigValueField" class="tig-value-field" hidden>
+                    <span>Nombre de TIG</span>
+                    <input id="comparutionTigValue" class="tig-input" type="text" inputmode="numeric" pattern="[0-9]*" value="1" aria-describedby="comparutionTigHint">
+                  </label>
+                  <small id="comparutionTigHint" class="field-hint" hidden>Nombre entier compris entre 1 et 300.</small>
                 </div>
 
                 <label class="inline-field">
@@ -200,25 +282,52 @@
                   <span>Amende x2</span>
                 </label>
 
-                <label class="inline-field">
-                  <span>Réduction % :</span>
-                  <input id="reduction" type="number" min="0" max="100" value="0">
+                <label class="inline-field reduction-summary">
+                  <span>Réduction cumulée des vices :</span>
+                  <input id="viceReduction" type="text" value="0 %" readonly>
                 </label>
               </aside>
             </div>
           </form>
         </section>
 
-        <section class="panel action-panel">
-          <button id="copySapd" class="primary-button big-action" type="button">Comparution SAPD</button>
-          <div class="vices-workspace">
+        <section class="panel action-panel" aria-label="Actions de la comparution">
+          <div class="action-zone action-zone-primary">
+            <span class="action-zone-kicker">Document principal</span>
+            <button id="copySapd" class="primary-button dock-action copy-feedback" type="button">
+              <span class="button-content">
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7V3Z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg>
+                <span>Comparution SAPD</span>
+              </span>
+            </button>
+          </div>
+
+          <div class="action-zone action-zone-vices vices-workspace">
             <div class="vices-workspace-header">
-              <span>Vices de procédure</span>
+              <span class="vices-title-group">
+                <svg class="zone-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.8 8.1 7 10 4.2-1.9 7-5.4 7-10V6l-7-3Z"/><path d="M12 8v5M12 16h.01"/></svg>
+                <span>Vices de procédure</span>
+              </span>
+              <span id="vicesCounter" class="vices-counter">0</span>
             </div>
             <div id="selectedProcedureVices" class="selected-list compact-list" aria-live="polite"></div>
           </div>
-          <button id="openVicesPicker" class="secondary-button big-action" type="button">Vices</button>
-          <button id="copyVicesContest" class="primary-button big-action" type="button">Vice SAPD</button>
+
+          <div class="action-zone action-zone-controls">
+            <span class="action-zone-kicker">Actions sur les vices</span>
+            <button id="openVicesPicker" class="secondary-button dock-action" type="button">
+              <span class="button-content">
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h7M15 17h5"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="13" cy="17" r="2"/></svg>
+                <span>Sélectionner les vices</span>
+              </span>
+            </button>
+            <button id="copyVicesContest" class="primary-button dock-action copy-feedback" type="button">
+              <span class="button-content">
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/></svg>
+                <span>Copier le texte des vices</span>
+              </span>
+            </button>
+          </div>
           <textarea id="vices" name="vices" hidden></textarea>
         </section>
       </section>
@@ -264,7 +373,8 @@
                 <div class="separator"></div>
 
                 <div class="combo" id="judgementFactCombo">
-                  <input id="judgementFactSearch" type="text" placeholder="Selectionne un fait" aria-label="Selectionne un fait" role="combobox" aria-expanded="false" aria-controls="judgementFactSuggestions">
+                  <svg class="combo-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+                  <input id="judgementFactSearch" type="text" placeholder="Sélectionne un fait" aria-label="Sélectionne un fait" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="judgementFactSuggestions">
                   <button id="judgementComboToggle" class="combo-toggle" type="button" aria-label="Ouvrir la liste">⌄</button>
                   <div id="judgementFactSuggestions" class="suggestions" role="listbox"></div>
                 </div>
@@ -290,7 +400,15 @@
         </section>
 
         <section class="panel action-panel judgement-action-panel">
-          <button id="copyJudgementSapd" class="primary-button big-action" type="button">Jugement SAPD</button>
+          <div class="action-zone action-zone-primary judgement-copy-zone">
+            <span class="action-zone-kicker">Document principal</span>
+            <button id="copyJudgementSapd" class="primary-button dock-action copy-feedback" type="button">
+              <span class="button-content">
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7V3Z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg>
+                <span>Jugement SAPD</span>
+              </span>
+            </button>
+          </div>
         </section>
       </section>
 
@@ -298,7 +416,10 @@
         <section class="panel info-panel">
           <div class="info-heading">
             <h1 id="infosTitle">Infos</h1>
-            <input id="infoSearch" type="search" placeholder="Filtrer les faits" aria-label="Filtrer les faits">
+            <label class="page-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+              <input id="infoSearch" type="search" placeholder="Filtrer les faits" aria-label="Filtrer les faits">
+            </label>
           </div>
 
           <div class="table-wrap">
@@ -329,7 +450,7 @@
             </details>
             <details>
               <summary>Catégorie C</summary>
-              <p>Cal.50, uzi, tec 9, scorpion, canon sciée.</p>
+              <p>Cal.50, uzi, tec 9, scorpion, canon scié.</p>
             </details>
             <details>
               <summary>Catégorie D</summary>
@@ -371,7 +492,10 @@
         <section class="panel info-panel">
           <div class="info-heading">
             <h1 id="procedureVicesTitle">Vices de procédure</h1>
-            <input id="procedureVicesSearch" type="search" placeholder="Filtrer les vices" aria-label="Filtrer les vices">
+            <label class="page-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+              <input id="procedureVicesSearch" type="search" placeholder="Filtrer les vices" aria-label="Filtrer les vices">
+            </label>
           </div>
 
           <div class="table-wrap">
@@ -398,7 +522,10 @@
       <div class="modal-backdrop" data-close-modal></div>
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <header class="modal-header">
-          <h2 id="modalTitle">Ouverture de comparution</h2>
+          <div class="modal-title-group">
+            <span class="modal-kicker">Déroulé d’audience</span>
+            <h2 id="modalTitle">Ouverture de comparution</h2>
+          </div>
           <div class="modal-actions">
             <button class="icon-button" type="button" data-close-modal aria-label="Fermer">×</button>
           </div>
@@ -411,7 +538,10 @@
       <div class="modal-backdrop" data-close-copy-modal></div>
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="copyFallbackTitle">
         <header class="modal-header">
-          <h2 id="copyFallbackTitle">Texte à copier</h2>
+          <div class="modal-title-group">
+            <span class="modal-kicker">Presse-papier</span>
+            <h2 id="copyFallbackTitle">Texte à copier</h2>
+          </div>
           <button class="icon-button" type="button" data-close-copy-modal aria-label="Fermer">×</button>
         </header>
         <div class="modal-body">
@@ -424,18 +554,61 @@
       <div class="modal-backdrop" data-close-procedure-vices-modal></div>
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="procedureVicesModalTitle">
         <header class="modal-header">
-          <h2 id="procedureVicesModalTitle">Sélection des vices</h2>
-          <button class="icon-button" type="button" data-close-procedure-vices-modal aria-label="Fermer">Ã—</button>
+          <div class="modal-title-group">
+            <span class="modal-kicker">Dossier en cours</span>
+            <h2 id="procedureVicesModalTitle">Sélection des vices</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-procedure-vices-modal aria-label="Fermer">×</button>
         </header>
-        <div class="modal-body">
-          <input id="procedureVicesPickerSearch" type="search" placeholder="Rechercher un vice" aria-label="Rechercher un vice">
+        <div class="modal-body vices-picker-body">
+          <div class="vices-picker-toolbar">
+            <label class="vices-search-field">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+              <input id="procedureVicesPickerSearch" type="search" placeholder="Rechercher un vice, une catégorie ou un effet" aria-label="Rechercher un vice">
+            </label>
+            <span id="procedureVicesPickerCount" class="selection-count">0 vice sélectionné</span>
+          </div>
           <div id="procedureVicesPickerList" class="vices-picker-list"></div>
+          <div class="vices-picker-footer">
+            <button id="finishProcedureVices" class="primary-button" type="button">Terminer la sélection</button>
+          </div>
         </div>
       </section>
     </div>
 
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="resetConfirmModal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-reset-modal></div>
+      <section class="modal-card small-modal-card" role="dialog" aria-modal="true" aria-labelledby="resetConfirmTitle" aria-describedby="resetConfirmText">
+        <header class="modal-header">
+          <div class="modal-title-group">
+            <span class="modal-kicker danger-kicker">Action sensible</span>
+            <h2 id="resetConfirmTitle">Confirmer la réinitialisation</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-reset-modal aria-label="Fermer">×</button>
+        </header>
+        <div class="modal-body">
+          <p id="resetConfirmText">Le contenu du dossier courant sera effacé.</p>
+          <div class="modal-footer-actions">
+            <button id="cancelReset" class="secondary-button" type="button">Annuler</button>
+            <button id="confirmReset" class="toolbar-button danger" type="button">Réinitialiser ce dossier</button>
+          </div>
+        </div>
+      </section>
+    </div>
 
+    <div id="toast" class="toast" role="status" aria-live="polite" data-type="success">
+      <span class="toast-icon" aria-hidden="true">
+        <svg class="toast-success-icon" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>
+        <svg class="toast-warning-icon" viewBox="0 0 24 24"><path d="M12 4 3 20h18L12 4Z"/><path d="M12 9v5M12 17h.01"/></svg>
+      </span>
+      <span class="toast-copy">
+        <strong id="toastTitle">Action terminée</strong>
+        <span id="toastMessage"></span>
+      </span>
+      <span class="toast-progress" aria-hidden="true"></span>
+    </div>
+
+    <script src="calculations.js"></script>
     <script src="src_app.js"></script>
   </body>
 </html>
