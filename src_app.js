@@ -3,179 +3,26 @@ const {
   clampFactCount,
   clampTigValue,
   formatTime,
+  MAX_PRISON_MINUTES,
+  normalizePrisonTime,
   sumReductions
 } = DojCalculations;
 
-const rawCodePenal = String.raw`
-Usage abusif du klaxon (Contravention);20000;0;0
-Circulation à contre-sens (Contravention);30000;0;0
-Circulation hors-route (Contravention);80000;0;0
-Stationnement dangereux / interdit (Contravention);30000;0;0
-Non-respect d'un feu rouge/stop (Contravention);30000;0;0
-Dépassement dangereux (Contravention);5000;0;0
-Véhicule non en état (Contravention);40000;0;0
-Excès de vitesse >80km/h (Contravention);50000;0;0
-Dégradation de la voie publique (Contravention);30000;0;0
-Entrave à la circulation (Contravention);30000;0;0
-Atteinte à la pudeur (Contravention);20000;0;0
-Défaut de permis (Contravention);30000;0;0
-Incitation à la haine (Contravention);30000;0;0
-Dissimulation du visage (Délit mineur);100000;10;0
-Défaut de permis (Délit mineur);40000;10;0
-Outrage à agent (Délit mineur);100000;10;0
-Outrage à la cour (Délit mineur);200000;10;0
-Mise en danger de la vie d'autrui (Délit mineur);200000;10;0
-Port d'arme illégal légère (Délit mineur);200000;10;0
-Exhibition d'arme de catégorie A (Délit mineur);50000;15;0
-Trouble à l'ordre public (Délit mineur);30000;10;0
-Refus d'obtempérer (Délit mineur);80000;10;0
-Menace verbale / intimidation envers agent de l'état (Délit mineur);200000;5;0
-Possession d'argent sale (x2 Possession) (Délit mineur);0;5;0
-Possession de gilet par balle (Délit mineur);100000;10;0
-Manifestation illégale (Délit mineur);100000;10;0
-Vol (Délit mineur);200000;10;0
-Braquage de supérette (Délit mineur);200000;15;0
-Braquage d'ATM (Délit mineur);200000;15;0
-Cambriolage (Délit mineur);200000;10;0
-Possession de drogue >5 (Délit mineur);100000;15;0
-Usurpation d'identité (Délit mineur);300000;10;0
-Usurpation de fonction publique (Délit mineur);300000;10;0
-Entrave au secours (Délit mineur);80000;10;0
-Attroupement illégal (Délit mineur);100000;10;0
-Embuscade (Délit mineur);200000;10;0
-Faux à une administration (Délit mineur);1000000;10;0
-Course illégale (Délit mineur);200000;10;0
-Exhibition d'arme de catégorie B/C (Délit mineur);100000;10;0
-Intrusion;500000;20;Délit majeur;
-Port du Gilet Pare-Balle (Délit mineur);200000;10;0
-Violence physique légère (Délit mineur);200000;10;0
-Violence physique légère sur agent de l'état (Délit mineur);300000;10;0
-Tentative de corruption (Délit mineur);60000;10;0
-Attaque de fourgon blindé (Délit mineur);200000;10;0
-Diffamation (Délit mineur);50000;10;0
-Violence physique aggravée (Délit majeur);400000;20;0
-Complicité de Violence physique aggravée (Délit majeur);100000;10;0
-Violence physique aggravée sur agent de l'état (Délit majeur);400000;25;0
-Complicité de Violence physique aggravée sur agent de l'état (Délit majeur);200000;12;0
-Fabrication de drogue (Délit majeur);500000;20;0
-Complicité de Fabrication de drogue (Délit majeur);200000;10;0
-Fabrication d'arme (Délit majeur);600000;25;0
-Vente de drogue (Délit majeur);200000;20;0
-Complicité de Vente de drogue (Délit majeur);100000;10;0
-Escroquerie à l'entreprise (Délit majeur);300000;10;0
-Entrave à une opération de police (Délit majeur);200000;10;0
-Refus d'identification (Délit majeur);80000;10;0
-Évasion (Délit majeur);400000;20;0
-Complicité d'Évasion (Délit majeur);200000;10;0
-Entrave à la justice (Délit majeur);400000;15;0
-Tentative de kidnapping (Délit majeur);200000;15;0
-Complicité de Tentative de kidnapping (Délit majeur);80000;7;0
-Parjure (Délit majeur);200000;20;0
-Braquage de Bijouterie (Délit majeur);500000;25;0
-Complicité de Braquage de Bijouterie (Délit majeur);300000;12;0
-Braquage de Fleeca (Délit majeur);600000;25;0
-Complicité de Braquage de Fleeca (Délit majeur);300000;12;0
-Abus de pouvoir (Délit majeur);500000;20;0
-Port d'arme illégale lourde (Délit majeur);400000;15;0
-Exhibition d'arme de catégorie D/E (Délit majeur);500000;10;0
-Trahison (INDIC)(Délit majeur);500000;20;0
-Appartenance à une organisation criminelle (Délit majeur);500000;20;0
-Usurpation de fonction gouvernementale (Délit majeur);500000;20;0
-Complicité d'Usurpation de fonction gouvernementale (Délit majeur);300000;0;0
-Prise d'otage;400000;20;Crime;>= 5 otage = Bracelet
-Complicité de Prise d'otage;200000;10;Crime;>= 5 otage = Bracelet
-Prise d'otage sur agent de l'état;550000;25;Crime;Bracelet
-Complicité de Prise d'otage sur agent de l'état;270000;12;Crime;Bracelet
-Trafic d'arme;500000;35;Crime;Bracelet
-Complicité de Trafic d'arme;250000;17;Crime;Bracelet
-Complicité de meurtre;500000;40;Crime;Bracelet
-Tentative de meurtre sur civil;450000;40;Crime;
-Complicité de tentative de meurtre sur civil;220000;20;Crime;
-Tir sur civil;500000;20;Crime;
-Complicité de Tir sur Civil;250000;10;Crime;
-Tir sur agent de l'état;500000;20;Crime;Bracelet
-Complicité de Tir sur agent de l'état;250000;10;Crime;Bracelet
-Tentative de meurtre sur agent de l'état;500000;25;Crime;Bracelet
-Complicité de Tentative de meurtre sur agent de l'état;250000;12;Crime;Bracelet
-Kidnapping;400000;20;Crime;
-Complicité de Kidnapping;200000;10;Crime;
-Braquage de banque (Crime);700000;30;0
-Complicité de Braquage de banque (Crime);300000;15;0
-Sédition;1000000;20;Crime;Bracelet
-Attaque de Convoi Gouvernemental;1000000;30;Crime;Bracelet
-Complicité d'Attaque de Convoi Gouvernemental;500000;15;Crime;Bracelet
-Attaque de bâtiment Gouvernemental;1000000;30;Crime;Bracelet
-Complicité d'Attaque de bâtiment Gouvernemental;500000;15;Crime;Bracelet
-Complicité de Meurtre sur civil;500000;15;Crime;Bracelet
-Complicité de Meurtre sur agent de l'état;1000000;30;Crime;Bracelet
-Complicité de Terrorisme (Crime);2000000;30;0
-Non-respect des règles du bracelet;3000000;30;Crime;Bracelet
-Meurtre sur civil (Peine fédérale);0;0;0
-Meurtre sur agent de l'état (Peine fédérale);0;0;0
-Terrorisme (Peine fédérale);0;0;0
-Haute trahison;2000000;0;Peine fédérale;Bracelet
-Braquage de banque centrale;650000;30;Crime;Bracelet
-Complicité de Braquage de banque centrale;320000;15;Crime;Bracelet
-Cyber Attaque;650000;30;Crime;
-Complicité de Cyber Attaque;325000;15;Crime;
-Détournement de fonds;2000000;0;Peine fédérale;Bracelet
-Harcèlement;500000;35;Délit majeur;
-Blanchiment d'argent;500000;25;Délit majeur;
-Faux témoignage;500000;20;Délit majeur;
-Braquage de coiffeur;150000;20;Délit Mineur;
-Complicité de Braquage de coiffeur;150000;20;Délit Mineur;
-Transport de marchandises illégales;350000;15;Délit majeur;
-`;
-
-function normalizeCategorie(value) {
-  return String(value || "Autre").replace(/\s*\(bracelet\)\s*/i, "").trim() || "Autre";
-}
-
-function isBraceletFact(categorieSource, details) {
-  return normalizeSearchText(`${categorieSource} ${details}`).includes("bracelet");
-}
-
-const codePenal = rawCodePenal
-  .trim()
-  .split("\n")
-  .map((line) => {
-    const fields = line.split(";");
-    const [nomRaw, amendeRaw, tempsRaw, categorieRaw, detailsRaw] = fields;
-    const nomSource = String(nomRaw ?? "").trim();
-    const categorieSource = String(categorieRaw ?? "").trim();
-    const explicitCategorie = Boolean(categorieSource && categorieSource !== "0");
-    const rawCategorie = explicitCategorie
-      ? categorieSource
-      : (nomSource.match(/\(([^)]+)\)$/)?.[1] ?? "Autre");
-    const categorie = normalizeCategorie(rawCategorie);
-    const detailsSource = String(detailsRaw ?? "").trim();
-    const details = detailsSource.toLowerCase() === "true"
-      ? "Bracelet"
-      : detailsSource.toLowerCase() === "false"
-        ? ""
-        : detailsSource;
-    const hasBracelet = isBraceletFact(rawCategorie, details);
-
-    return {
-      nom: explicitCategorie ? `${nomSource} (${categorie})` : nomSource,
-      categorie,
-      amende: Number(String(amendeRaw).replace(/[^\d-]/g, "")) || 0,
-      temps: parseInt(tempsRaw, 10) || 0,
-      details,
-      hasBracelet,
-      hasDetails: fields.length >= 5
-    };
-  });
+const {
+  all: codePenal,
+  compareNames: compareFactNames,
+  resolveName: resolveFactName
+} = DojFacts;
 
 const state = {
   facts: [],
   pendingFact: "",
   tigActive: false,
+  uncappedPrisonMinutes: 0,
   prisonMinutes: 0,
   tigValue: 1,
   lawyerActive: false,
   procedureVices: [],
-  procedureViceTargets: {},
   decisionBeforeAcquittement: "",
   acquittementLocked: false
 };
@@ -184,12 +31,11 @@ const prelimState = {
   facts: [],
   pendingFact: "",
   tigActive: false,
-  rawPrisonMinutes: 0,
+  uncappedPrisonMinutes: 0,
   prisonMinutes: 0,
   tigValue: 1,
   lawyerActive: false,
-  procedureVices: [],
-  procedureViceTargets: {}
+  procedureVices: []
 };
 
 const judgementState = {
@@ -224,66 +70,7 @@ const COLOR_PALETTES = [
   { id: "pink", label: "Rose", primary: "#ff7ac8", primaryStrong: "#db2777", accent: "#ffaddd" }
 ];
 
-const PROCEDURE_VICES = [
-  { id: "1-1", category: "I - Droits fondamentaux", name: "Absence d'accès à un avocat alors que celui-ci est disponible", effect: "Acquittement", type: "acquittement" },
-  { id: "1-2", category: "I - Droits fondamentaux", name: "Non-respect du délai légal d'attente de l'avocat", effect: "Acquittement", type: "acquittement" },
-  { id: "1-3", category: "I - Droits fondamentaux", name: "Interrogatoire conduit sans la présence ou l'accord exprès de l'avocat, après demande formelle", effect: "Acquittement", type: "acquittement" },
-  { id: "1-4", category: "I - Droits fondamentaux", name: "Atteinte au droit au silence", effect: "Acquittement", type: "acquittement" },
-  { id: "1-5", category: "I - Droits fondamentaux", name: "Non-lecture des droits Miranda à l'individu", effect: "Acquittement", type: "acquittement" },
-  { id: "1-6", category: "I - Droits fondamentaux", name: "Non-respect du délai raisonnable de notification des droits Miranda (15 minutes maximum après l'arrestation et l'arrivée au poste)", effect: "Acquittement", type: "acquittement" },
-  { id: "1-7", category: "I - Droits fondamentaux", name: "Objets saisis avant lecture des droits", effect: "Réduction de peine de 30 %", type: "reduction", reduction: 30 },
-  { id: "1-8", category: "I - Droits fondamentaux", name: "Aucune information communiquée sur les accusations lors de la procédure", effect: "Acquittement", type: "acquittement" },
-  { id: "1-9", category: "I - Droits fondamentaux", name: "Traitements inhumains ou dégradants, menaces, pressions morales ou contraintes psychologiques hors cadre légal", effect: "Acquittement", type: "acquittement" },
-  { id: "1-10", category: "I - Droits fondamentaux", name: "Conditions de détention contraires à la dignité humaine", effect: "Acquittement", type: "acquittement" },
-  { id: "1-11", category: "I - Droits fondamentaux", name: "Refus injustifié de soins médicaux en détention", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "1-12", category: "I - Droits fondamentaux", name: "Refus injustifié de fournir nourriture ou boisson", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "1-13", category: "I - Droits fondamentaux", name: "Privation d'accès aux installations sanitaires ou aux mesures d'hygiène élémentaires", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
-  { id: "2-1", category: "II - Procédure judiciaire", name: "Non-transmission du dossier complet au DOJ ou à l'avocat dans le cadre d'une procédure de jugement", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "2-2", category: "II - Procédure judiciaire", name: "Non-transmission de la mise en détention (MED) à l'avocat (avant ou pendant une comparution/audience)", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "2-3", category: "II - Procédure judiciaire", name: "Non-respect du délai d'attente de la réponse du DOJ ou de l'avocat", effect: "Acquittement", type: "acquittement" },
-  { id: "2-4", category: "II - Procédure judiciaire", name: "Refus de pause raisonnable durant un interrogatoire pour l'avocat ou le suspect", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
-  { id: "2-5", category: "II - Procédure judiciaire", name: "Sortie de comparution sans autorisation préalable du DOJ", effect: "Réduction de peine de 30 %", type: "reduction", reduction: 30 },
-  { id: "2-6", category: "II - Procédure judiciaire", name: "Facture émise avant la fin de la comparution", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "3-1", category: "III - Preuves", name: "Preuve obtenue illégalement (absence de mandat ou de base légale)", effect: "Acquittement", type: "acquittement" },
-  { id: "3-2", category: "III - Preuves", name: "Preuve inventée, fabriquée ou falsifiée", effect: "Acquittement", type: "acquittement" },
-  { id: "3-3", category: "III - Preuves", name: "Destruction, altération, dissimulation ou perte volontaire des preuves", effect: "Acquittement", type: "acquittement" },
-  { id: "3-4", category: "III - Preuves", name: "Destruction, altération, dissimulation ou perte d'un élément disculpatoire", effect: "Acquittement", type: "acquittement" },
-  { id: "3-5", category: "III - Preuves", name: "Objet illégal mentionné sans preuve de saisie dans la MED", effect: "Annulation de la peine de possession", type: "annulation" },
-  { id: "3-6", category: "III - Preuves", name: "Objet illégal saisi mais non effectivement possédé par l'individu", effect: "Annulation de la peine de possession", type: "annulation" },
-  { id: "4-1", category: "IV - Arrestation", name: "Arrestation sans éléments matériels, indices objectifs ou témoignages concordants", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "4-2", category: "IV - Arrestation", name: "Arrestation sans nécessité légale ou manifestement disproportionnée", effect: "Réduction de peine de 30 %", type: "reduction", reduction: 30 },
-  { id: "4-3", category: "IV - Arrestation", name: "Usage excessif de la force lors de l'arrestation", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "4-4", category: "IV - Arrestation", name: "Non-respect de la gradation et de l'escalade des moyens", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
-  { id: "4-5", category: "IV - Arrestation", name: "Atteinte à la dignité de la personne lors de l'arrestation", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
-  { id: "5-1", category: "V - Détention abusive", name: "Détention prolongée sans jugement ou sans justification légale", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "5-2", category: "V - Détention abusive", name: "Détention fondée sur des motifs punitifs, politiques, personnels ou discriminatoires", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "5-3", category: "V - Détention abusive", name: "Traitement différencié ou discriminatoire sans justification légale objective", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "6-1", category: "VI - Rapports et erreurs", name: "Inexactitude ou mauvaise qualification des faits dans les rapports", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
-  { id: "6-2", category: "VI - Rapports et erreurs", name: "Absence de pièces essentielles au dossier (rapports, photographies, objets saisis)", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
-  { id: "6-3", category: "VI - Rapports et erreurs", name: "Absence totale de Mise En Détention (MED)", effect: "Acquittement", type: "acquittement" },
-  { id: "6-4", category: "VI - Rapports et erreurs", name: "Modification de la MED sans validation préalable du DOJ", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "6-5", category: "VI - Rapports et erreurs", name: "Erreur d'identité majeure (nom, prénom, sexe)", effect: "Acquittement", type: "acquittement" },
-  { id: "6-6", category: "VI - Rapports et erreurs", name: "Erreur d'identité administrative (autres éléments d'état civil)", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
-  { id: "6-7", category: "VI - Rapports et erreurs", name: "Qualification pénale ne correspondant pas à l'infraction la plus grave applicable", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
-  { id: "7-1", category: "VII - Photographies et saisies", name: "Photographie du casier non conforme (tête et épaules uniquement) ou manquante", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
-  { id: "7-2", category: "VII - Photographies et saisies", name: "Présence d'effets personnels visibles sur la photographie", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
-  { id: "7-3", category: "VII - Photographies et saisies", name: "Objets illégaux non saisis ou omission de saisie avant comparution", effect: "Réduction de peine de 75 %", type: "reduction", reduction: 75 },
-  { id: "7-4", category: "VII - Photographies et saisies", name: "Absence de photographies complètes (face, dos, profil gauche et profil droit) pour un individu tatoué", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
-  { id: "8-1", category: "VIII - Abus de pouvoir", name: "Exercice de l'autorité à des fins personnelles ou illégales", effect: "Acquittement", type: "acquittement" },
-  { id: "8-2", category: "VIII - Abus de pouvoir", name: "Menaces, pressions ou contraintes visant à obtenir aveux ou informations hors cadre légal", effect: "Acquittement", type: "acquittement" },
-  { id: "8-3", category: "VIII - Abus de pouvoir", name: "Représailles directes ou déguisées à l'encontre d'un individu ou d'un groupe", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
-  { id: "8-4", category: "VIII - Abus de pouvoir", name: "Utilisation des pouvoirs publics à des intérêts privés", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "8-5", category: "VIII - Abus de pouvoir", name: "Sanctions manifestement excessives ou injustifiées", effect: "Réduction de peine de 40 %", type: "reduction", reduction: 40 },
-  { id: "8-6", category: "VIII - Abus de pouvoir", name: "Altération volontaire de la version des faits par une autorité ou un témoin officiel", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "9-1", category: "IX - Infractions majeures", name: "Propos incompatibles avec la fonction (menaces, insultes, propos discriminatoires ou intimidants)", effect: "Réduction de peine de 50 % + suites disciplinaires DOJ", type: "reduction", reduction: 50 },
-  { id: "9-2", category: "IX - Infractions majeures", name: "Ajout, invention ou modification d'un chef d'accusation sans base légale ou validation du DOJ", effect: "Annulation de la peine concernée", type: "annulation" },
-  { id: "9-3", category: "IX - Infractions majeures", name: "Falsification, altération ou création de documents juridiques ou officiels", effect: "Annulation de la peine concernée", type: "annulation" },
-  { id: "9-4", category: "IX - Infractions majeures", name: "Application ou interprétation volontairement erronée de la loi à des fins personnelles", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "9-5", category: "IX - Infractions majeures", name: "Refus de communication d'informations légales ou défaut de transparence dans une enquête", effect: "Réduction de peine de 30 %", type: "reduction", reduction: 30 },
-  { id: "9-6", category: "IX - Infractions majeures", name: "Atteinte au droit de la défense empêchant l'accusé de se défendre équitablement", effect: "Réduction de peine de 50 %", type: "reduction", reduction: 50 },
-  { id: "9-7", category: "IX - Infractions majeures", name: "Retard injustifié dans le traitement d'une procédure judiciaire", effect: "Réduction de peine de 25 %", type: "reduction", reduction: 25 },
-  { id: "9-8", category: "IX - Infractions majeures", name: "Manipulation de la procédure judiciaire visant à fausser l'issue d'une décision", effect: "Acquittement", type: "acquittement" }
-];
+const { all: PROCEDURE_VICES } = DojProcedureVices;
 
 const refs = {
   prelimForm: $("#prelimForm"),
@@ -326,6 +113,7 @@ const refs = {
   judgementComboToggle: $("#judgementComboToggle"),
   judgementAddFact: $("#judgementAddFact"),
   judgementTimeTotal: $("#judgementTimeTotal"),
+  judgementTimeHint: $("#judgementTimeHint"),
   judgementFineTotal: $("#judgementFineTotal"),
   copyJudgementSapd: $("#copyJudgementSapd"),
   name: $("#name"),
@@ -341,6 +129,7 @@ const refs = {
   comparutionTigValueField: $("#comparutionTigValueField"),
   comparutionTigValue: $("#comparutionTigValue"),
   comparutionTigHint: $("#comparutionTigHint"),
+  timeCapNotice: $("#timeCapNotice"),
   lawyerToggle: $("#lawyerToggle"),
   lawyerName: $("#lawyerName"),
   lawyerNameField: $("#lawyerNameField"),
@@ -380,26 +169,6 @@ const refs = {
 
 const factByName = new Map(codePenal.map((fact) => [fact.nom, fact]));
 const procedureViceById = new Map(PROCEDURE_VICES.map((vice) => [vice.id, vice]));
-const FACT_NAME_MIGRATIONS = new Map([
-  ["Non respect d'un feu rouge/stop (Contravention)", "Non-respect d'un feu rouge/stop (Contravention)"],
-  ["Trouble à l'ordre publique (Délit mineur)", "Trouble à l'ordre public (Délit mineur)"],
-  ["Violence Physique légére (Délit mineur)", "Violence physique légère (Délit mineur)"],
-  ["Violence Physique légére sur agent de l'état (Délit mineur)", "Violence physique légère sur agent de l'état (Délit mineur)"],
-  ["Non respect des règles du bracelet (Crime)", "Non-respect des règles du bracelet (Crime)"],
-  ["Détournement de fond (Peine fédérale)", "Détournement de fonds (Peine fédérale)"],
-  ["Blachiment d'argent (Délit majeur)", "Blanchiment d'argent (Délit majeur)"],
-  ["Transport de marchandises illégal (Délit majeur)", "Transport de marchandises illégales (Délit majeur)"]
-]);
-
-const CATEGORY_SEVERITY = new Map([
-  ["peine federale", 0],
-  ["crime", 1],
-  ["delit majeur", 2],
-  ["delit mineur", 3],
-  ["contravention", 4],
-  ["autre", 5]
-]);
-
 function formatMoney(value) {
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
@@ -413,7 +182,7 @@ function formatMoney(value) {
 
 function factSeverityClass(fact) {
   const category = normalizeSearchText(fact?.categorie || "");
-  if (category.includes("peine federale")) return "severity-federal";
+  if (category.includes("crime federal")) return "severity-federal";
   if (category.includes("crime")) return "severity-crime";
   if (category.includes("delit majeur")) return "severity-major";
   if (category.includes("delit mineur")) return "severity-minor";
@@ -555,29 +324,17 @@ function scoreFactSearch(fact, query) {
 function searchFacts(query) {
   if (!normalizeSearchText(query)) return codePenal;
 
-  return codePenal
-    .map((fact, index) => ({
-      fact,
-      index,
-      score: scoreFactSearch(fact, query),
-      length: normalizeSearchText(fact.nom).length
-    }))
-    .filter((result) => Number.isFinite(result.score))
-    .sort((a, b) => a.score - b.score || a.length - b.length || a.index - b.index)
-    .map((result) => result.fact);
+  return codePenal.filter((fact) => Number.isFinite(scoreFactSearch(fact, query)));
 }
 
 function updatePrelimPrisonMinutes() {
   const reduction = selectedProcedureReduction(prelimState);
   const sanctions = calculateSanctions(
     prelimState.facts.map((name) => factByName.get(name)).filter(Boolean),
-    {
-      reduction,
-      annulledFacts: selectedAnnulledFacts(prelimState, prelimState.facts)
-    }
+    { reduction }
   );
-  prelimState.rawPrisonMinutes = sanctions.minutes;
-  prelimState.prisonMinutes = Math.min(60, sanctions.minutes);
+  prelimState.uncappedPrisonMinutes = sanctions.uncappedMinutes;
+  prelimState.prisonMinutes = sanctions.minutes;
   refs.prelimViceReduction.value = `${reduction} %`;
 }
 
@@ -774,7 +531,7 @@ function serializeFactCounts(counts) {
 function parseFactCounts(entries) {
   const counts = new Map();
   (Array.isArray(entries) ? entries : []).forEach(([fact, count]) => {
-    const migratedFact = FACT_NAME_MIGRATIONS.get(fact) ?? fact;
+    const migratedFact = resolveFactName(fact);
     if (factByName.has(migratedFact)) counts.set(migratedFact, clampFactCount(count));
   });
   return counts;
@@ -782,31 +539,13 @@ function parseFactCounts(entries) {
 
 function validFacts(facts) {
   return (Array.isArray(facts) ? facts : [])
-    .map((fact) => FACT_NAME_MIGRATIONS.get(fact) ?? fact)
-    .filter((fact) => factByName.has(fact));
+    .map(resolveFactName)
+    .filter((fact) => factByName.has(fact))
+    .sort(compareFactNames);
 }
 
 function validProcedureVices(vices) {
   return (Array.isArray(vices) ? vices : []).filter((id) => procedureViceById.has(id));
-}
-
-function validProcedureViceTargets(targets, selectedVices, facts) {
-  const validTargets = {};
-  const source = targets && typeof targets === "object" ? targets : {};
-  selectedVices.forEach((id) => {
-    const vice = procedureViceById.get(id);
-    const migratedFact = FACT_NAME_MIGRATIONS.get(source[id]) ?? source[id];
-    if (vice?.type === "annulation" && facts.includes(migratedFact)) validTargets[id] = migratedFact;
-  });
-  return validTargets;
-}
-
-function pruneProcedureViceTargets(targetState = state, facts = state.facts) {
-  Object.entries(targetState.procedureViceTargets).forEach(([id, fact]) => {
-    if (!targetState.procedureVices.includes(id) || !facts.includes(fact)) {
-      delete targetState.procedureViceTargets[id];
-    }
-  });
 }
 
 function getCaseSnapshot() {
@@ -827,7 +566,6 @@ function getCaseSnapshot() {
       tigValue: state.tigValue,
       fineDouble: refs.fineDouble.checked,
       procedureVices: [...state.procedureVices],
-      procedureViceTargets: { ...state.procedureViceTargets },
       vices: refs.vices.value
     },
     prelim: {
@@ -840,7 +578,6 @@ function getCaseSnapshot() {
       tigActive: prelimState.tigActive,
       tigValue: prelimState.tigValue,
       procedureVices: [...prelimState.procedureVices],
-      procedureViceTargets: { ...prelimState.procedureViceTargets }
     },
     judgement: {
       name: refs.judgementName.value,
@@ -885,11 +622,6 @@ function restoreCaseSnapshot(snapshot, shouldSwitchView = true) {
   state.tigValue = clampTigValue(comparution.tigValue ?? 1);
   state.lawyerActive = Boolean(comparution.lawyerActive);
   state.procedureVices = validProcedureVices(comparution.procedureVices);
-  state.procedureViceTargets = validProcedureViceTargets(
-    comparution.procedureViceTargets,
-    state.procedureVices,
-    state.facts
-  );
   state.decisionBeforeAcquittement = comparution.decisionBeforeAcquittement || "";
   state.acquittementLocked = false;
 
@@ -903,11 +635,6 @@ function restoreCaseSnapshot(snapshot, shouldSwitchView = true) {
   prelimState.tigValue = clampTigValue(prelim.tigValue ?? 1);
   prelimState.lawyerActive = Boolean(prelim.lawyerActive);
   prelimState.procedureVices = validProcedureVices(prelim.procedureVices);
-  prelimState.procedureViceTargets = validProcedureViceTargets(
-    prelim.procedureViceTargets,
-    prelimState.procedureVices,
-    prelimState.facts
-  );
 
   refs.judgementName.value = judgement.name || "";
   refs.judgementLinkMed.value = judgement.linkMed || "";
@@ -1006,13 +733,11 @@ function validateCaseBeforeCopy(type) {
     doj: [
       [refs.name.value.trim(), "Nom manquant"],
       [state.facts.length, "Aucun fait sélectionné"],
-      [currentDecision(), "Décision non choisie"],
-      [!hasUnassignedAnnulationVice(), "Sélectionne le fait concerné par chaque annulation"]
+      [currentDecision(), "Décision non choisie"]
     ],
     prelim: [
       [refs.prelimName.value.trim(), "Nom manquant"],
-      [prelimState.facts.length, "Aucun fait sélectionné"],
-      [!hasUnassignedAnnulationVice("prelim"), "Sélectionne le fait concerné par chaque annulation"]
+      [prelimState.facts.length, "Aucun fait sélectionné"]
     ],
     judgement: [
       [refs.judgementName.value.trim(), "Nom manquant"],
@@ -1036,7 +761,6 @@ function getProcedureVicesConfig(context = procedureVicesContext) {
       context,
       label: "Audience préliminaire",
       targetState: prelimState,
-      facts: prelimState.facts,
       container: refs.prelimSelectedProcedureVices
     };
   }
@@ -1045,16 +769,8 @@ function getProcedureVicesConfig(context = procedureVicesContext) {
     context: "doj",
     label: "Comparution",
     targetState: state,
-    facts: state.facts,
     container: refs.selectedProcedureVices
   };
-}
-
-function hasUnassignedAnnulationVice(context = "doj") {
-  const { targetState, facts } = getProcedureVicesConfig(context);
-  return selectedProcedureViceObjects(targetState).some((vice) => (
-    vice.type === "annulation" && !facts.includes(targetState.procedureViceTargets[vice.id])
-  ));
 }
 
 function selectedProcedureViceObjects(targetState = state) {
@@ -1075,15 +791,6 @@ function selectedProcedureReduction(targetState = state) {
   const selected = selectedProcedureViceObjects(targetState);
   if (selected.some((vice) => vice.type === "acquittement")) return 100;
   return sumReductions(selected.filter((vice) => vice.type === "reduction").map((vice) => vice.reduction || 0));
-}
-
-function selectedAnnulledFacts(targetState = state, facts = state.facts) {
-  return Array.from(new Set(
-    selectedProcedureViceObjects(targetState)
-      .filter((vice) => vice.type === "annulation")
-      .map((vice) => targetState.procedureViceTargets[vice.id])
-      .filter((fact) => facts.includes(fact))
-  ));
 }
 
 function hasSelectedAcquittementVice() {
@@ -1131,7 +838,7 @@ function applyProcedureVicesEffects(context = "doj") {
 }
 
 function renderSelectedProcedureVices(context = "doj") {
-  const { targetState, facts, container } = getProcedureVicesConfig(context);
+  const { targetState, container } = getProcedureVicesConfig(context);
   const counter = context === "prelim" ? refs.prelimVicesCounter : refs.vicesCounter;
   const viceCount = targetState.procedureVices.length;
   counter.textContent = String(viceCount);
@@ -1164,7 +871,6 @@ function renderSelectedProcedureVices(context = "doj") {
     remove.addEventListener("click", () => {
       removeCardWithAnimation(item, () => {
         targetState.procedureVices = targetState.procedureVices.filter((id) => id !== vice.id);
-        delete targetState.procedureViceTargets[vice.id];
         renderSelectedProcedureVices(context);
         if (!refs.procedureVicesModal.hidden && procedureVicesContext === context) renderProcedureVicesPicker();
         applyProcedureVicesEffects(context);
@@ -1172,39 +878,6 @@ function renderSelectedProcedureVices(context = "doj") {
     });
 
     item.append(text, remove);
-
-    if (vice.type === "annulation") {
-      const targetField = document.createElement("label");
-      targetField.className = "vice-target-field";
-      targetField.textContent = "Fait dont la peine doit être annulée";
-
-      const targetSelect = document.createElement("select");
-      targetSelect.setAttribute("aria-label", `Fait annulé pour ${vice.name}`);
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = facts.length ? "Sélectionne un fait" : "Ajoute d’abord un fait";
-      targetSelect.append(placeholder);
-
-      facts.forEach((factName) => {
-        const option = document.createElement("option");
-        option.value = factName;
-        option.textContent = factName;
-        targetSelect.append(option);
-      });
-      targetSelect.value = targetState.procedureViceTargets[vice.id] || "";
-      targetSelect.disabled = !facts.length;
-      targetSelect.addEventListener("change", () => {
-        if (targetSelect.value) {
-          targetState.procedureViceTargets[vice.id] = targetSelect.value;
-        } else {
-          delete targetState.procedureViceTargets[vice.id];
-        }
-        applyProcedureVicesEffects(context);
-      });
-
-      targetField.append(targetSelect);
-      item.append(targetField);
-    }
     container.append(item);
   });
 
@@ -1236,7 +909,7 @@ function renderProcedureVicesTable() {
 }
 
 function renderProcedureVicesPicker() {
-  const { targetState, facts } = getProcedureVicesConfig();
+  const { targetState } = getProcedureVicesConfig();
   const query = refs.procedureVicesPickerSearch.value;
   const rows = PROCEDURE_VICES.filter((vice) => procedureViceMatches(vice, query));
   const selectedCount = targetState.procedureVices.length;
@@ -1282,12 +955,8 @@ function renderProcedureVicesPicker() {
         input.addEventListener("change", () => {
           if (input.checked && !isProcedureViceSelected(vice.id, targetState)) {
             targetState.procedureVices.push(vice.id);
-            if (vice.type === "annulation" && facts.length === 1) {
-              targetState.procedureViceTargets[vice.id] = facts[0];
-            }
           } else if (!input.checked) {
             targetState.procedureVices = targetState.procedureVices.filter((id) => id !== vice.id);
-            delete targetState.procedureViceTargets[vice.id];
           }
           label.classList.toggle("selected", input.checked);
           renderSelectedProcedureVices(procedureVicesContext);
@@ -1326,17 +995,13 @@ function closeProcedureVicesModal() {
 
 
 function procedureVicesTextLines(targetState = state) {
-  return selectedProcedureViceObjects(targetState).map((vice) => {
-    const target = vice.type === "annulation" ? targetState.procedureViceTargets[vice.id] : "";
-    return `- ${vice.name} (${vice.effect}${target ? ` — Fait concerné : ${target}` : ""})`;
-  });
+  return selectedProcedureViceObjects(targetState)
+    .map((vice) => `- ${vice.name} (${vice.effect})`);
 }
 
 function procedureVicesHtmlItems() {
-  return selectedProcedureViceObjects(state).map((vice) => {
-    const target = vice.type === "annulation" ? state.procedureViceTargets[vice.id] : "";
-    return `<li>${escapeHtml(vice.name)} (${escapeHtml(vice.effect)}${target ? ` — Fait concerné : ${escapeHtml(target)}` : ""})</li>`;
-  });
+  return selectedProcedureViceObjects(state)
+    .map((vice) => `<li>${escapeHtml(vice.name)} (${escapeHtml(vice.effect)})</li>`);
 }
 
 function buildViceSapdText(context = "doj") {
@@ -1376,10 +1041,10 @@ function updateTotals() {
     state.facts.map((name) => factByName.get(name)).filter(Boolean),
     {
       reduction,
-      fineDouble: refs.fineDouble.checked,
-      annulledFacts: selectedAnnulledFacts(state, state.facts)
+      fineDouble: refs.fineDouble.checked
     }
   );
+  state.uncappedPrisonMinutes = sanctions.uncappedMinutes;
   state.prisonMinutes = sanctions.minutes;
 
   refs.comparutionTigToggle.classList.toggle("active", state.tigActive);
@@ -1388,6 +1053,7 @@ function updateTotals() {
   refs.comparutionTigHint.hidden = true;
   refs.comparutionTigValue.value = String(state.tigValue);
   refs.timeTotal.readOnly = true;
+  refs.timeCapNotice.hidden = state.tigActive || state.uncappedPrisonMinutes <= MAX_PRISON_MINUTES;
 
   if (state.tigActive) {
     refs.timeTotal.value = `${state.tigValue} T.I.G`;
@@ -1401,19 +1067,20 @@ function updateTotals() {
 
 function updateJudgementTotals() {
   // Le jugement est saisi manuellement: les faits ne changent pas le temps ni l'amende.
+  commitJudgementTime();
   saveCaseToStorage();
 }
 
-function categoryRank(fact) {
-  return CATEGORY_SEVERITY.get(normalizeSearchText(fact.categorie)) ?? CATEGORY_SEVERITY.get("autre");
-}
+function commitJudgementTime(notifyIfCapped = false) {
+  const normalized = normalizePrisonTime(refs.judgementTimeTotal.value);
+  refs.judgementTimeHint.hidden = normalized.valid;
+  if (!normalized.valid) return false;
 
-function sortFactsBySeverity(facts) {
-  return [...facts].sort((a, b) => {
-    const rankDiff = categoryRank(a) - categoryRank(b);
-    if (rankDiff) return rankDiff;
-    return b.temps - a.temps || b.amende - a.amende || a.nom.localeCompare(b.nom, "fr");
-  });
+  refs.judgementTimeTotal.value = normalized.text;
+  if (normalized.capped && notifyIfCapped) {
+    showToast("Le temps du jugement est plafonné à 1h00.", "warning");
+  }
+  return true;
 }
 
 function appendFactDisplay(container, factName) {
@@ -1472,7 +1139,6 @@ function renderSelectedFacts() {
       event.stopPropagation();
       removeCardWithAnimation(item, () => {
         state.facts.splice(index, 1);
-        pruneProcedureViceTargets();
         renderSelectedFacts();
         renderSelectedProcedureVices();
         updateTotals();
@@ -1567,7 +1233,6 @@ function renderPrelimSelectedFacts() {
       event.stopPropagation();
       removeCardWithAnimation(item, () => {
         prelimState.facts.splice(index, 1);
-        pruneProcedureViceTargets(prelimState, prelimState.facts);
         updatePrelimPrisonMinutes();
         renderPrelimSelectedFacts();
         renderSelectedProcedureVices("prelim");
@@ -1587,7 +1252,7 @@ function updatePrelimTime() {
   refs.prelimTigHint.hidden = true;
   refs.prelimTigValue.value = String(prelimState.tigValue);
   refs.prelimTimeTotal.readOnly = true;
-  refs.prelimTimeCapNotice.hidden = prelimState.tigActive || prelimState.rawPrisonMinutes <= 60;
+  refs.prelimTimeCapNotice.hidden = prelimState.tigActive || prelimState.uncappedPrisonMinutes <= MAX_PRISON_MINUTES;
 
   if (prelimState.tigActive) {
     refs.prelimTimeTotal.value = `${prelimState.tigValue} T.I.G`;
@@ -1599,305 +1264,192 @@ function updatePrelimTime() {
   saveCaseToStorage();
 }
 
-function getSuggestions() {
-  return searchFacts(refs.factSearch.value);
-}
-
-function getPrelimSuggestions() {
-  return searchFacts(refs.prelimFactSearch.value);
-}
-
-function getJudgementSuggestions() {
-  return searchFacts(refs.judgementFactSearch.value);
-}
-
-function renderSuggestions(forceOpen = false) {
-  const suggestions = getSuggestions();
-  suggestionIndices.doj = Math.min(suggestionIndices.doj, Math.max(0, suggestions.length - 1));
-  refs.factSuggestions.innerHTML = "";
-
-  suggestions.forEach((fact, index) => {
-    const option = document.createElement("button");
-    option.type = "button";
-    option.id = `fact-suggestion-${index}`;
-    option.className = `suggestion${index === suggestionIndices.doj ? " active" : ""}`;
-    option.setAttribute("role", "option");
-    option.setAttribute("aria-selected", String(index === suggestionIndices.doj));
-    setSuggestionContent(option, fact);
-    option.addEventListener("mousedown", (event) => event.preventDefault());
-    option.addEventListener("click", () => {
-      suggestionIndices.doj = index;
-      state.pendingFact = fact.nom;
-      refs.factSearch.value = fact.nom;
-      closeSuggestions();
-      refs.factSearch.focus();
-    });
-    refs.factSuggestions.append(option);
-  });
-
-  const shouldOpen = forceOpen || document.activeElement === refs.factSearch;
-  refs.factSuggestions.classList.toggle("open", shouldOpen && suggestions.length > 0);
-  refs.factSearch.setAttribute("aria-expanded", String(shouldOpen && suggestions.length > 0));
-  if (shouldOpen && suggestions.length) {
-    refs.factSearch.setAttribute("aria-activedescendant", `fact-suggestion-${suggestionIndices.doj}`);
-  } else {
-    refs.factSearch.removeAttribute("aria-activedescendant");
-  }
-}
-
-function renderPrelimSuggestions(forceOpen = false) {
-  const suggestions = getPrelimSuggestions();
-  suggestionIndices.prelim = Math.min(suggestionIndices.prelim, Math.max(0, suggestions.length - 1));
-  refs.prelimFactSuggestions.innerHTML = "";
-
-  suggestions.forEach((fact, index) => {
-    const option = document.createElement("button");
-    option.type = "button";
-    option.id = `prelim-fact-suggestion-${index}`;
-    option.className = `suggestion${index === suggestionIndices.prelim ? " active" : ""}`;
-    option.setAttribute("role", "option");
-    option.setAttribute("aria-selected", String(index === suggestionIndices.prelim));
-    setSuggestionContent(option, fact);
-    option.addEventListener("mousedown", (event) => event.preventDefault());
-    option.addEventListener("click", () => {
-      suggestionIndices.prelim = index;
-      prelimState.pendingFact = fact.nom;
-      refs.prelimFactSearch.value = fact.nom;
-      closePrelimSuggestions();
-      refs.prelimFactSearch.focus();
-    });
-    refs.prelimFactSuggestions.append(option);
-  });
-
-  const shouldOpen = forceOpen || document.activeElement === refs.prelimFactSearch;
-  refs.prelimFactSuggestions.classList.toggle("open", shouldOpen && suggestions.length > 0);
-  refs.prelimFactSearch.setAttribute("aria-expanded", String(shouldOpen && suggestions.length > 0));
-  if (shouldOpen && suggestions.length) {
-    refs.prelimFactSearch.setAttribute("aria-activedescendant", `prelim-fact-suggestion-${suggestionIndices.prelim}`);
-  } else {
-    refs.prelimFactSearch.removeAttribute("aria-activedescendant");
-  }
-}
-
-function renderJudgementSuggestions(forceOpen = false) {
-  const suggestions = getJudgementSuggestions();
-  suggestionIndices.judgement = Math.min(suggestionIndices.judgement, Math.max(0, suggestions.length - 1));
-  refs.judgementFactSuggestions.innerHTML = "";
-
-  suggestions.forEach((fact, index) => {
-    const option = document.createElement("button");
-    option.type = "button";
-    option.id = `judgement-fact-suggestion-${index}`;
-    option.className = `suggestion${index === suggestionIndices.judgement ? " active" : ""}`;
-    option.setAttribute("role", "option");
-    option.setAttribute("aria-selected", String(index === suggestionIndices.judgement));
-    setSuggestionContent(option, fact);
-    option.addEventListener("mousedown", (event) => event.preventDefault());
-    option.addEventListener("click", () => {
-      suggestionIndices.judgement = index;
-      judgementState.pendingFact = fact.nom;
-      refs.judgementFactSearch.value = fact.nom;
-      closeJudgementSuggestions();
-      refs.judgementFactSearch.focus();
-    });
-    refs.judgementFactSuggestions.append(option);
-  });
-
-  const shouldOpen = forceOpen || document.activeElement === refs.judgementFactSearch;
-  refs.judgementFactSuggestions.classList.toggle("open", shouldOpen && suggestions.length > 0);
-  refs.judgementFactSearch.setAttribute("aria-expanded", String(shouldOpen && suggestions.length > 0));
-  if (shouldOpen && suggestions.length) {
-    refs.judgementFactSearch.setAttribute("aria-activedescendant", `judgement-fact-suggestion-${suggestionIndices.judgement}`);
-  } else {
-    refs.judgementFactSearch.removeAttribute("aria-activedescendant");
-  }
-}
-
-function closeSuggestions() {
-  refs.factSuggestions.classList.remove("open");
-  refs.factSearch.setAttribute("aria-expanded", "false");
-  refs.factSearch.removeAttribute("aria-activedescendant");
-}
-
-function closeJudgementSuggestions() {
-  refs.judgementFactSuggestions.classList.remove("open");
-  refs.judgementFactSearch.setAttribute("aria-expanded", "false");
-  refs.judgementFactSearch.removeAttribute("aria-activedescendant");
-}
-
-function closePrelimSuggestions() {
-  refs.prelimFactSuggestions.classList.remove("open");
-  refs.prelimFactSearch.setAttribute("aria-expanded", "false");
-  refs.prelimFactSearch.removeAttribute("aria-activedescendant");
-}
-
-function suggestionConfig(type) {
-  const configs = {
-    doj: {
-      input: refs.factSearch,
-      getItems: getSuggestions,
-      render: renderSuggestions,
-      setPending: (fact) => { state.pendingFact = fact; },
-      add: addFact,
-      optionPrefix: "fact-suggestion-"
-    },
-    prelim: {
-      input: refs.prelimFactSearch,
-      getItems: getPrelimSuggestions,
-      render: renderPrelimSuggestions,
-      setPending: (fact) => { prelimState.pendingFact = fact; },
-      add: addPrelimFact,
-      optionPrefix: "prelim-fact-suggestion-"
-    },
-    judgement: {
-      input: refs.judgementFactSearch,
-      getItems: getJudgementSuggestions,
-      render: renderJudgementSuggestions,
-      setPending: (fact) => { judgementState.pendingFact = fact; },
-      add: addJudgementFact,
-      optionPrefix: "judgement-fact-suggestion-"
+const FACT_SELECTORS = Object.freeze({
+  doj: {
+    state,
+    input: refs.factSearch,
+    suggestions: refs.factSuggestions,
+    optionPrefix: "fact-suggestion-",
+    duplicateMessage: "Ce fait est déjà ajouté.",
+    afterAdd() {
+      renderSelectedFacts();
+      renderSelectedProcedureVices();
+      updateTotals();
     }
-  };
-  return configs[type];
+  },
+  prelim: {
+    state: prelimState,
+    input: refs.prelimFactSearch,
+    suggestions: refs.prelimFactSuggestions,
+    optionPrefix: "prelim-fact-suggestion-",
+    duplicateMessage: "Ce fait est déjà ajouté.",
+    afterAdd() {
+      updatePrelimPrisonMinutes();
+      renderPrelimSelectedFacts();
+      renderSelectedProcedureVices("prelim");
+      updatePrelimTime();
+    }
+  },
+  judgement: {
+    state: judgementState,
+    input: refs.judgementFactSearch,
+    suggestions: refs.judgementFactSuggestions,
+    optionPrefix: "judgement-fact-suggestion-",
+    duplicateMessage: "Ce fait est déjà ajouté. Modifie le nombre à droite.",
+    beforeAdd(factName) {
+      judgementState.factCounts.set(factName, 1);
+    },
+    afterAdd() {
+      renderJudgementSelectedFacts();
+      updateJudgementTotals();
+    }
+  }
+});
+
+function factSelectorConfig(type) {
+  const config = FACT_SELECTORS[type];
+  if (!config) throw new Error(`Sélecteur de faits inconnu : ${type}`);
+  return config;
+}
+
+function factSuggestions(type) {
+  return searchFacts(factSelectorConfig(type).input.value);
+}
+
+function closeFactSuggestions(type) {
+  const { input, suggestions } = factSelectorConfig(type);
+  suggestions.classList.remove("open");
+  input.setAttribute("aria-expanded", "false");
+  input.removeAttribute("aria-activedescendant");
+}
+
+function renderFactSuggestions(type, forceOpen = false) {
+  const config = factSelectorConfig(type);
+  const items = factSuggestions(type);
+  const activeIndex = Math.min(suggestionIndices[type], Math.max(0, items.length - 1));
+  suggestionIndices[type] = activeIndex;
+  config.suggestions.innerHTML = "";
+
+  items.forEach((fact, index) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.id = `${config.optionPrefix}${index}`;
+    option.className = `suggestion${index === activeIndex ? " active" : ""}`;
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(index === activeIndex));
+    setSuggestionContent(option, fact);
+    option.addEventListener("mousedown", (event) => event.preventDefault());
+    option.addEventListener("click", () => {
+      suggestionIndices[type] = index;
+      config.state.pendingFact = fact.nom;
+      config.input.value = fact.nom;
+      closeFactSuggestions(type);
+      config.input.focus();
+    });
+    config.suggestions.append(option);
+  });
+
+  const shouldOpen = forceOpen || document.activeElement === config.input;
+  const isOpen = shouldOpen && items.length > 0;
+  config.suggestions.classList.toggle("open", isOpen);
+  config.input.setAttribute("aria-expanded", String(isOpen));
+  if (isOpen) {
+    config.input.setAttribute("aria-activedescendant", `${config.optionPrefix}${activeIndex}`);
+  } else {
+    config.input.removeAttribute("aria-activedescendant");
+  }
 }
 
 function moveSuggestionSelection(type, direction) {
-  const config = suggestionConfig(type);
-  const items = config.getItems();
+  const config = factSelectorConfig(type);
+  const items = factSuggestions(type);
   if (!items.length) return;
   suggestionIndices[type] = (suggestionIndices[type] + direction + items.length) % items.length;
-  config.render(true);
-  document.getElementById(`${config.optionPrefix}${suggestionIndices[type]}`)?.scrollIntoView({ block: "nearest" });
+  renderFactSuggestions(type, true);
+  document.getElementById(`${config.optionPrefix}${suggestionIndices[type]}`)
+    ?.scrollIntoView({ block: "nearest" });
 }
 
 function addActiveSuggestion(type) {
-  const config = suggestionConfig(type);
-  if (!config.input.value.trim()) {
-    config.add();
-    return;
+  const config = factSelectorConfig(type);
+  if (config.input.value.trim()) {
+    const selected = factSuggestions(type)[suggestionIndices[type]];
+    if (selected) config.state.pendingFact = selected.nom;
   }
-  const items = config.getItems();
-  const selected = items[suggestionIndices[type]];
-  if (selected) config.setPending(selected.nom);
-  config.add();
+  addFactForContext(type);
 }
 
-function resolveFactFromInput() {
-  const value = refs.factSearch.value.trim();
+function resolveFactFromInput(type) {
+  const { input } = factSelectorConfig(type);
+  const value = input.value.trim();
   if (!value) return "";
   if (factByName.has(value)) return value;
-  return getSuggestions()[0]?.nom ?? "";
+  return factSuggestions(type)[0]?.nom ?? "";
 }
 
-function resolveJudgementFactFromInput() {
-  const value = refs.judgementFactSearch.value.trim();
-  if (!value) return "";
-  if (factByName.has(value)) return value;
-  return getJudgementSuggestions()[0]?.nom ?? "";
-}
+function addFactForContext(type) {
+  const config = factSelectorConfig(type);
+  const factName = config.state.pendingFact || resolveFactFromInput(type);
 
-function resolvePrelimFactFromInput() {
-  const value = refs.prelimFactSearch.value.trim();
-  if (!value) return "";
-  if (factByName.has(value)) return value;
-  return getPrelimSuggestions()[0]?.nom ?? "";
-}
-
-function addFact() {
-  const factName = state.pendingFact || resolveFactFromInput();
   if (!factName) {
     showToast("Sélectionne un fait avant d'ajouter.");
     return;
   }
-
-  if (state.facts.length >= 10) {
+  if (config.state.facts.length >= 10) {
     showToast("La limite de 10 faits est atteinte.");
     return;
   }
-
-  if (state.facts.includes(factName)) {
-    showToast("Ce fait est déjà ajouté.");
+  if (config.state.facts.includes(factName)) {
+    showToast(config.duplicateMessage);
     return;
   }
 
-  state.facts.push(factName);
-  if (state.facts.length === 1) {
-    selectedProcedureViceObjects().forEach((vice) => {
-      if (vice.type === "annulation" && !state.procedureViceTargets[vice.id]) {
-        state.procedureViceTargets[vice.id] = factName;
-      }
-    });
-  }
-  state.pendingFact = "";
-  suggestionIndices.doj = 0;
-  refs.factSearch.value = "";
-  closeSuggestions();
-  renderSelectedFacts();
-  renderSelectedProcedureVices();
-  updateTotals();
+  config.beforeAdd?.(factName);
+  config.state.facts.push(factName);
+  config.state.facts.sort(compareFactNames);
+  config.state.pendingFact = "";
+  suggestionIndices[type] = 0;
+  config.input.value = "";
+  closeFactSuggestions(type);
+  config.afterAdd();
 }
 
-function addJudgementFact() {
-  const factName = judgementState.pendingFact || resolveJudgementFactFromInput();
-  if (!factName) {
-    showToast("Sélectionne un fait avant d'ajouter.");
+function handleSuggestionKeydown(event, type) {
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    moveSuggestionSelection(type, event.key === "ArrowDown" ? 1 : -1);
     return;
   }
-
-  if (judgementState.facts.length >= 10) {
-    showToast("La limite de 10 faits est atteinte.");
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addActiveSuggestion(type);
     return;
   }
-
-  if (judgementState.facts.includes(factName)) {
-    showToast("Ce fait est déjà ajouté. Modifie le nombre à droite.");
-    return;
-  }
-
-  judgementState.facts.push(factName);
-  judgementState.factCounts.set(factName, 1);
-  judgementState.pendingFact = "";
-  suggestionIndices.judgement = 0;
-  refs.judgementFactSearch.value = "";
-  closeJudgementSuggestions();
-  renderJudgementSelectedFacts();
-  updateJudgementTotals();
+  if (event.key === "Escape") closeFactSuggestions(type);
 }
 
-function addPrelimFact() {
-  const factName = prelimState.pendingFact || resolvePrelimFactFromInput();
-  if (!factName) {
-    showToast("Sélectionne un fait avant d'ajouter.");
-    return;
-  }
+function bindFactSelector(type, toggle, addButton) {
+  const config = factSelectorConfig(type);
 
-  if (prelimState.facts.length >= 10) {
-    showToast("La limite de 10 faits est atteinte.");
-    return;
-  }
+  config.input.addEventListener("input", () => {
+    suggestionIndices[type] = 0;
+    const exactName = config.input.value.trim();
+    config.state.pendingFact = factByName.has(exactName) ? exactName : "";
+    renderFactSuggestions(type, true);
+  });
+  config.input.addEventListener("focus", () => renderFactSuggestions(type, true));
+  config.input.addEventListener("blur", () => {
+    window.setTimeout(() => closeFactSuggestions(type), 120);
+  });
+  config.input.addEventListener("keydown", (event) => handleSuggestionKeydown(event, type));
 
-  if (prelimState.facts.includes(factName)) {
-    showToast("Ce fait est déjà ajouté.");
-    return;
-  }
-
-  prelimState.facts.push(factName);
-  if (prelimState.facts.length === 1) {
-    selectedProcedureViceObjects(prelimState).forEach((vice) => {
-      if (vice.type === "annulation" && !prelimState.procedureViceTargets[vice.id]) {
-        prelimState.procedureViceTargets[vice.id] = factName;
-      }
-    });
-  }
-  prelimState.pendingFact = "";
-  suggestionIndices.prelim = 0;
-  refs.prelimFactSearch.value = "";
-  closePrelimSuggestions();
-  updatePrelimPrisonMinutes();
-  renderPrelimSelectedFacts();
-  renderSelectedProcedureVices("prelim");
-  updatePrelimTime();
+  toggle.addEventListener("click", () => {
+    config.input.focus();
+    renderFactSuggestions(type, true);
+  });
+  addButton.addEventListener("click", () => addFactForContext(type));
 }
+
 
 function escapeHtml(value) {
   return String(value)
@@ -2015,94 +1567,6 @@ function buildJudgementSapdText() {
     `📝 Lien du dossier de jugement : ${refs.judgementLinkMed.value}`,
     "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
   ].join("\n");
-}
-
-function buildOpeningText() {
-  const facts = formatFactsForCopy(state.facts).replace("⛔ Faits retenus :\n", "").replace("⛔ Faits retenus :", "-");
-  const timeText = getComparutionTimeText();
-  const name = getTrimmedValue(refs.name, EMPTY_PERSON_LABEL);
-  const judge = getTrimmedValue(refs.judge, "Procureur / Juge / OPJ à compléter");
-  const lawyerName = getLawyerName();
-  const representationLine = hasLawyer()
-    ? `⚖️ assisté(e) de son avocat ${lawyerName}`
-    : "❌ se représentant lui-même / elle-même";
-  const lawyerDefenseLine = hasLawyer()
-    ? `⚖️ ${lawyerName}, confirmez-vous ou contestez-vous le rapport présenté ?`
-    : "";
-  const vices = [
-    ...procedureVicesTextLines(),
-    ...refs.vices.value
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => `- ${line}`)
-  ].join("\n");
-
-  return [
-    `Bonjour / Bonsoir à toutes et à tous.`,
-    `Je suis le Procureur / Officier de Police Judiciaire / Juge ${judge}.`,
-    `Nous sommes le ${getDateLong()}, il est actuellement ${getHourText()}, et je déclare la comparution officiellement ouverte.`,
-    "",
-    "Identification des parties",
-    "Nous sommes en présence de :",
-    `La partie civile, représentée par le ${CIVIL_PARTY_LABEL}`,
-    `La partie accusée, constituée de Monsieur / Madame ${name},`,
-    representationLine,
-    "",
-    "Exposé des faits",
-    "Je demande maintenant à l’agent en charge du dossier de nous énoncer :",
-    "- les infractions reprochées,",
-    "- l’amende requise,",
-    "- la peine de prison encourue,",
-    "- les biens saisis.",
-    "",
-    "Déclaration de l’accusé",
-    `Monsieur / Madame ${name},`,
-    "déclarez-vous coupable ou non coupable des faits qui vous sont reprochés ?",
-    "",
-    "Rapport de l’agent",
-    "Agent NOM, merci d’exposer à la Cour :",
-    "- le lieu de commission des faits,",
-    "- les faits constatés,",
-    "- les éléments matériels relevés.",
-    "",
-    "Défense",
-    `Monsieur / Madame ${name},`,
-    "au regard des éléments exposés par les agents,",
-    "qu’avez-vous à déclarer pour votre défense ?",
-    lawyerDefenseLine,
-    "",
-    "Compléments éventuels",
-    "Les agents souhaitent-ils ajouter des faits complémentaires ?",
-    "(limite réglementaire applicable)",
-    "",
-    "Suspension de séance",
-    `S’il n’y a rien à ajouter, il est actuellement ${getHourText()}, et je suspends la séance le temps de la délibération.`,
-    "➡️ (Consultation des éléments via la plateforme officielle DOJ)",
-    "",
-    "Reprise de séance & verdict",
-    "(Reprise de séance)",
-    "Suite à délibération,",
-    `Monsieur / Madame ${name},`,
-    "la Cour vous déclare :",
-    "🔴 COUPABLE / NON COUPABLE des faits suivants :",
-    facts,
-    "",
-    "🔴 Sanctions prononcées :",
-    `Amende : ${refs.fineTotal.value}`,
-    `Peine de prison : ${timeText}`,
-    "Biens restitués : liste",
-    "Biens saisis non restitués : liste",
-    vices ? `\n⚠️Vices de procédure :⚠️\n${vices}` : "",
-    "",
-    "Clôture",
-    `Il est ${getHourText()}, je déclare la comparution terminée.`,
-    "",
-    "📎 Merci de copier le rapport dans le canal prévu à cet effet :",
-    REPORT_CHANNEL_URL
-  ]
-    .filter((line) => line !== "")
-    .join("\n");
 }
 
 function renderOpeningModal() {
@@ -2473,8 +1937,8 @@ function showToast(message, requestedType = "") {
 function renderCodeTable() {
   const query = refs.infoSearch.value;
   const rows = normalizeSearchText(query)
-    ? sortFactsBySeverity(codePenal.filter((fact) => matchesInfoSearch(fact, query)))
-    : sortFactsBySeverity(codePenal);
+    ? codePenal.filter((fact) => matchesInfoSearch(fact, query))
+    : codePenal;
 
   refs.codeTable.innerHTML = rows
     .map((fact) => {
@@ -2541,77 +2005,10 @@ function switchView(target) {
   saveCaseToStorage();
 }
 
-function handleSuggestionKeydown(event, type, close) {
-  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-    event.preventDefault();
-    moveSuggestionSelection(type, event.key === "ArrowDown" ? 1 : -1);
-    return;
-  }
-  if (event.key === "Enter") {
-    event.preventDefault();
-    addActiveSuggestion(type);
-    return;
-  }
-  if (event.key === "Escape") close();
-}
-
 refs.resetCase.addEventListener("click", requestCurrentCaseReset);
-
-refs.factSearch.addEventListener("input", () => {
-  suggestionIndices.doj = 0;
-  state.pendingFact = factByName.has(refs.factSearch.value.trim()) ? refs.factSearch.value.trim() : "";
-  renderSuggestions(true);
-});
-
-refs.prelimFactSearch.addEventListener("input", () => {
-  suggestionIndices.prelim = 0;
-  prelimState.pendingFact = factByName.has(refs.prelimFactSearch.value.trim()) ? refs.prelimFactSearch.value.trim() : "";
-  renderPrelimSuggestions(true);
-});
-
-refs.judgementFactSearch.addEventListener("input", () => {
-  suggestionIndices.judgement = 0;
-  judgementState.pendingFact = factByName.has(refs.judgementFactSearch.value.trim()) ? refs.judgementFactSearch.value.trim() : "";
-  renderJudgementSuggestions(true);
-});
-
-refs.judgementFactSearch.addEventListener("focus", () => renderJudgementSuggestions(true));
-refs.judgementFactSearch.addEventListener("blur", () => window.setTimeout(closeJudgementSuggestions, 120));
-
-refs.judgementFactSearch.addEventListener("keydown", (event) => {
-  handleSuggestionKeydown(event, "judgement", closeJudgementSuggestions);
-});
-
-refs.prelimFactSearch.addEventListener("focus", () => renderPrelimSuggestions(true));
-refs.prelimFactSearch.addEventListener("blur", () => window.setTimeout(closePrelimSuggestions, 120));
-
-refs.prelimFactSearch.addEventListener("keydown", (event) => {
-  handleSuggestionKeydown(event, "prelim", closePrelimSuggestions);
-});
-
-refs.factSearch.addEventListener("focus", () => renderSuggestions(true));
-refs.factSearch.addEventListener("blur", () => window.setTimeout(closeSuggestions, 120));
-
-refs.factSearch.addEventListener("keydown", (event) => {
-  handleSuggestionKeydown(event, "doj", closeSuggestions);
-});
-
-refs.comboToggle.addEventListener("click", () => {
-  refs.factSearch.focus();
-  renderSuggestions(true);
-});
-
-refs.prelimComboToggle.addEventListener("click", () => {
-  refs.prelimFactSearch.focus();
-  renderPrelimSuggestions(true);
-});
-
-refs.judgementComboToggle.addEventListener("click", () => {
-  refs.judgementFactSearch.focus();
-  renderJudgementSuggestions(true);
-});
-
-refs.prelimAddFact.addEventListener("click", addPrelimFact);
+bindFactSelector("doj", refs.comboToggle, refs.addFact);
+bindFactSelector("prelim", refs.prelimComboToggle, refs.prelimAddFact);
+bindFactSelector("judgement", refs.judgementComboToggle, refs.judgementAddFact);
 refs.tigToggle.addEventListener("click", () => {
   if (prelimState.tigActive) commitPrelimTigValue();
   prelimState.tigActive = !prelimState.tigActive;
@@ -2636,21 +2033,26 @@ refs.copyPrelimSapd.addEventListener("click", () => {
 });
 refs.openPrelimVicesPicker.addEventListener("click", () => openProcedureVicesModal("prelim"));
 refs.copyPrelimVicesContest.addEventListener("click", () => {
-  if (hasUnassignedAnnulationVice("prelim")) {
-    showToast("Sélectionne le fait concerné par chaque annulation");
-    return;
-  }
   copyText(buildViceSapdText("prelim"), "Texte des vices copié");
 });
 refs.openPrelimHearing.addEventListener("click", openPrelimModal);
 
-refs.judgementAddFact.addEventListener("click", addJudgementFact);
 refs.copyJudgementSapd.addEventListener("click", () => {
+  if (!commitJudgementTime(true)) {
+    showToast("Temps du jugement incorrect.", "warning");
+    return;
+  }
   if (!validateCaseBeforeCopy("judgement")) return;
   copyText(buildJudgementSapdText(), "Jugement copié dans le presse-papier");
 });
+refs.judgementTimeTotal.addEventListener("input", () => {
+  refs.judgementTimeHint.hidden = true;
+});
+refs.judgementTimeTotal.addEventListener("change", () => {
+  commitJudgementTime(true);
+  saveCaseToStorage();
+});
 
-refs.addFact.addEventListener("click", addFact);
 refs.comparutionTigToggle.addEventListener("click", () => {
   if (state.tigActive) commitComparutionTigValue();
   state.tigActive = !state.tigActive;
@@ -2678,10 +2080,6 @@ refs.copySapd.addEventListener("click", () => {
 });
 refs.infoSearch.addEventListener("input", renderCodeTable);
 refs.copyVicesContest.addEventListener("click", () => {
-  if (hasUnassignedAnnulationVice("doj")) {
-    showToast("Sélectionne le fait concerné par chaque annulation");
-    return;
-  }
   copyText(buildViceSapdText("doj"), "Texte des vices copié");
 });
 refs.procedureVicesSearch.addEventListener("input", renderProcedureVicesTable);

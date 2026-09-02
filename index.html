@@ -135,7 +135,7 @@
                   <span>Réduction cumulée des vices :</span>
                   <input id="prelimViceReduction" type="text" value="0 %" readonly>
                 </label>
-                <small id="prelimTimeCapNotice" class="field-notice" role="status" hidden>Le temps calculé est plafonné à 60 minutes.</small>
+                <small id="prelimTimeCapNotice" class="field-notice" role="status" hidden>Le temps calculé est plafonné à 1h00.</small>
               </aside>
             </div>
           </form>
@@ -286,6 +286,7 @@
                   <span>Réduction cumulée des vices :</span>
                   <input id="viceReduction" type="text" value="0 %" readonly>
                 </label>
+                <small id="timeCapNotice" class="field-notice" role="status" hidden>Le temps calculé est plafonné à 1h00.</small>
               </aside>
             </div>
           </form>
@@ -387,8 +388,9 @@
               <aside class="totals-panel" aria-label="Totaux">
                 <label class="inline-field">
                   <span>Temps :</span>
-                  <input id="judgementTimeTotal" type="text" placeholder="Temps">
+                  <input id="judgementTimeTotal" type="text" placeholder="Ex. 45 min ou 1h00" aria-describedby="judgementTimeHint">
                 </label>
+                <small id="judgementTimeHint" class="field-hint" role="status" hidden>Utilisez des minutes ou le format 1h00, avec un maximum de 1h00.</small>
 
                 <label class="inline-field">
                   <span>Amende :</span>
@@ -608,6 +610,8 @@
       <span class="toast-progress" aria-hidden="true"></span>
     </div>
 
+    <script src="facts.js"></script>
+    <script src="procedure_vices.js"></script>
     <script src="calculations.js"></script>
     <script src="src_app.js"></script>
   </body>

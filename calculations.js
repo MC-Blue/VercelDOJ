@@ -1,4 +1,6 @@
 const DojCalculations = (() => {
+  const MAX_PRISON_MINUTES = 60;
+
   function clampInteger(value, min, max, fallback = min) {
     const number = Number(value);
     if (!Number.isFinite(number)) return fallback;
@@ -31,10 +33,6 @@ const DojCalculations = (() => {
     );
   }
 
-  function combinedReduction(manualReduction, procedureReductions) {
-    return Math.min(100, clampReduction(manualReduction) + sumReductions(procedureReductions));
-  }
-
   function formatTime(minutes) {
     const safeMinutes = Math.max(0, Math.round(Number(minutes) || 0));
     const hours = Math.floor(safeMinutes / 60);
@@ -42,17 +40,44 @@ const DojCalculations = (() => {
     return `${hours}h${String(mins).padStart(2, "0")}`;
   }
 
-  function calculateSanctions(facts, { reduction = 0, fineDouble = false, annulledFacts = [] } = {}) {
-    const annulled = new Set(Array.isArray(annulledFacts) ? annulledFacts : []);
-    const applicableFacts = (Array.isArray(facts) ? facts : []).filter((fact) => !annulled.has(fact.nom));
+  function normalizePrisonTime(value) {
+    const source = String(value ?? "").trim().toLowerCase();
+    if (!source) {
+      return { valid: true, requestedMinutes: 0, minutes: 0, capped: false, text: "" };
+    }
+
+    const hoursMatch = source.match(/^(\d+)\s*h(?:\s*(\d+))?$/i);
+    const minutesMatch = source.match(/^(\d+)\s*(?:min(?:ute)?s?)?$/i);
+    if (!hoursMatch && !minutesMatch) {
+      return { valid: false, requestedMinutes: 0, minutes: 0, capped: false, text: source };
+    }
+
+    const requestedMinutes = hoursMatch
+      ? (Number(hoursMatch[1]) * 60) + Number(hoursMatch[2] || 0)
+      : Number(minutesMatch[1]);
+    const minutes = Math.min(MAX_PRISON_MINUTES, requestedMinutes);
+
+    return {
+      valid: true,
+      requestedMinutes,
+      minutes,
+      capped: requestedMinutes > MAX_PRISON_MINUTES,
+      text: formatTime(minutes)
+    };
+  }
+
+  function calculateSanctions(facts, { reduction = 0, fineDouble = false } = {}) {
+    const applicableFacts = Array.isArray(facts) ? facts : [];
     const percent = clampReduction(reduction);
     const rawMinutes = applicableFacts.reduce((sum, fact) => sum + (Number(fact.temps) || 0), 0);
     const rawFine = applicableFacts.reduce((sum, fact) => sum + (Number(fact.amende) || 0), 0);
+    const uncappedMinutes = Math.round(rawMinutes * (1 - percent / 100));
 
     return {
       rawMinutes,
       rawFine,
-      minutes: Math.round(rawMinutes * (1 - percent / 100)),
+      uncappedMinutes,
+      minutes: Math.min(MAX_PRISON_MINUTES, uncappedMinutes),
       fine: Math.round((fineDouble ? rawFine * 2 : rawFine) * (1 - percent / 100))
     };
   }
@@ -60,11 +85,11 @@ const DojCalculations = (() => {
   return {
     calculateSanctions,
     clampFactCount,
-    clampInteger,
     clampReduction,
     clampTigValue,
-    combinedReduction,
     formatTime,
+    MAX_PRISON_MINUTES,
+    normalizePrisonTime,
     sumReductions
   };
 })();
