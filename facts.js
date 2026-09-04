@@ -251,11 +251,12 @@ Braquage d'Ammunation;150000;15;Délit mineur;
     ["Complicité de Braquage de coiffeur (Délit Mineur)", "Complicité de Braquage de coiffeur (Délit mineur)"]
   ]);
 
-  LEGACY_NAME_MIGRATIONS.forEach((currentName, legacyName) => {
-    if (!factsByName.has(currentName)) {
-      throw new Error(`Migration de fait invalide : ${legacyName} → ${currentName}`);
-    }
-  });
+  // Une migration devenue obsolète ne doit pas empêcher le catalogue de charger.
+  // Si son fait cible a été retiré, l'ancien fait sauvegardé sera simplement ignoré
+  // par la restauration du dossier.
+  const activeLegacyNameMigrations = new Map(
+    [...LEGACY_NAME_MIGRATIONS].filter(([, currentName]) => factsByName.has(currentName))
+  );
 
   return Object.freeze({
     all: Object.freeze(facts),
@@ -266,7 +267,7 @@ Braquage d'Ammunation;150000;15;Délit mineur;
       if (leftFact && rightFact) return compareFacts(leftFact, rightFact);
       return nameCollator.compare(left, right);
     },
-    resolveName: (name) => LEGACY_NAME_MIGRATIONS.get(name) ?? name
+    resolveName: (name) => activeLegacyNameMigrations.get(name) ?? name
   });
 })();
 

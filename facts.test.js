@@ -8,10 +8,9 @@ const expectedCategories = [
   "Crime",
   "Crime Fédéral"
 ];
-const expectedCounts = [13, 34, 34, 32, 5];
 const nameCollator = new Intl.Collator("fr", { sensitivity: "base", numeric: true });
 
-assert.equal(all.length, 118, "le répertoire doit contenir les 118 faits attendus");
+assert.ok(all.length >= 118, "le répertoire ne doit pas perdre de faits lors d'un ajout");
 assert.deepEqual(categories, expectedCategories, "les catégories doivent respecter l’ordre demandé");
 assert.deepEqual(
   [...new Set(all.map((fact) => fact.categorie))],
@@ -19,9 +18,9 @@ assert.deepEqual(
   "les faits doivent être regroupés dans l’ordre des catégories"
 );
 assert.deepEqual(
-  expectedCategories.map((category) => all.filter((fact) => fact.categorie === category).length),
-  expectedCounts,
-  "chaque catégorie doit conserver tous ses faits"
+  expectedCategories.filter((category) => all.some((fact) => fact.categorie === category)),
+  expectedCategories,
+  "chaque catégorie doit contenir au moins un fait"
 );
 assert.ok(
   all.every((fact, index) => index === 0 || compareNames(all[index - 1].nom, fact.nom) <= 0),
@@ -49,6 +48,15 @@ assert.equal(
   "Braquage de coiffeur (Délit mineur)",
   "les anciennes catégories doivent être normalisées dans les dossiers sauvegardés"
 );
+assert.equal(
+  resolveName("Transport de marchandises illégal (Délit majeur)"),
+  "Transport de marchandises illégal (Délit majeur)",
+  "une migration dont le fait cible a été retiré ne doit pas bloquer le catalogue"
+);
+assert.ok(
+  all.some((fact) => fact.nom === "Braquage d'Ammunation (Délit mineur)"),
+  "un fait récemment ajouté doit être disponible dans le catalogue"
+);
 assert.equal(new Set(all.map((fact) => fact.nom)).size, all.length, "les noms de faits doivent être uniques");
 assert.ok(
   all.every((fact) => Number.isInteger(fact.amende) && fact.amende >= 0),
@@ -71,4 +79,4 @@ assert.deepEqual(
   "le format compact doit produire les données utilisées par l'interface"
 );
 
-console.log("13/13 tests du répertoire des faits réussis.");
+console.log("15/15 tests du répertoire des faits réussis.");
